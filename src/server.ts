@@ -5,10 +5,16 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { deepResearch, type ResearchParams } from './deep-research.js';
-import { debugLog, progressLog, warnLog, errorLog, config } from './config.js';
+import { debugLog, progressLog, errorLog } from './config.js';
 
 /**
  * Create and configure the MCP server
+ *
+ * Creates an MCP server instance with the `deep_research` tool registered.
+ * The tool accepts a research topic and depth, delegates to a Gemini CLI agent,
+ * and returns a structured research report with metadata.
+ *
+ * @returns A configured McpServer instance ready to connect to a transport
  */
 export function createServer(): McpServer {
   debugLog('Creating MCP server');
@@ -116,6 +122,11 @@ If Firecrawl is unavailable, the agent gracefully degrades to Google Search only
 
 /**
  * Handle server shutdown gracefully
+ *
+ * Registers SIGTERM and SIGINT handlers to close the server gracefully.
+ * Ensures proper cleanup of resources before process exit.
+ *
+ * @param server - The MCP server instance to close on shutdown
  */
 export function setupShutdownHandlers(server: McpServer): void {
   const shutdown = async (signal: string) => {

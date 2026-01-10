@@ -3,10 +3,15 @@
  * Spawns Gemini CLI and handles output parsing
  */
 
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, type ChildProcess } from 'child_process';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { config, debugLog, progressLog, warnLog, errorLog } from './config.js';
+
+// Get the directory name of the current module for resolving template paths
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Research parameters
@@ -26,6 +31,7 @@ export interface ResearchMetadata {
   model: string;
   timestamp: string;
   sources_visited?: string[];
+  search_queries_used?: string[];
   iterations?: number;
 }
 
@@ -60,7 +66,6 @@ export type ResearchResult = ResearchSuccess | ResearchError;
  */
 async function checkGeminiCli(): Promise<boolean> {
   try {
-    const { spawn } = await import('child_process');
     return new Promise((resolve) => {
       const process = spawn('gemini', ['--version'], { stdio: 'pipe' });
       process.on('error', () => resolve(false));
@@ -79,7 +84,7 @@ function extractJsonFromOutput(output: string): Record<string, unknown> | null {
 
   // Strategy 1: Look for ```json ... ``` code blocks
   const fenceMatch = output.match(/```json\s*([\s\S]*?)\s*```/);
-  if (fenceMatch) {
+  if (fenceMatch?.[1]) {
     try {
       const parsed = JSON.parse(fenceMatch[1].trim());
       debugLog('JSON extracted from fence pattern');
@@ -126,7 +131,9 @@ function validateResearchResult(data: Record<string, unknown>): data is Record<s
  */
 async function buildPrompt(topic: string, depth: string): Promise<string> {
   // Read the prompt template
-  const templatePath = path.join(process.cwd(), 'prompts', 'research-prompt.md');
+  // Resolve path relative to the built file location (supports global npm installs)
+  // When installed globally, __dirname will be in the node_modules package directory
+  const templatePath = path.join(__dirname, '..', 'prompts', 'research-prompt.md');
 
   try {
     const template = await fs.readFile(templatePath, 'utf-8');
@@ -196,6 +203,25 @@ async function executeResearchWithRetry(
 }
 
 /**
+ * Get helpful error message for Gemini CLI exit code
+ */
+function getExitCodeMessage(code: number | null): string {
+  if (code === null) return 'Process terminated by signal';
+
+  const messages: Record<number, string> = {
+    1: 'General error - Check Gemini CLI configuration and authentication',
+    2: 'Misuse of shell command - Verify CLI arguments',
+    126: 'Command invoked cannot execute - Check Gemini CLI installation',
+    127: 'Command not found - Install Gemini CLI via: npm install -g @google/gemini-cli',
+    130: 'Process terminated by SIGINT (Ctrl+C)',
+    143: 'Process terminated by SIGTERM',
+    255: 'Exit status out of range - Possible environment issue',
+  };
+
+  return messages[code] || `Unknown error code ${code}`;
+}
+
+/**
  * Spawn Gemini CLI and capture output
  */
 async function spawnGeminiCli(prompt: string): Promise<string> {
@@ -211,7 +237,7 @@ async function spawnGeminiCli(prompt: string): Promise<string> {
     // Progress log interval
     const progressInterval = setInterval(() => {
       const elapsed = Date.now() - startTime;
-      if (elapsed > 60000) {
+      if (elapsed > 15000) {
         const seconds = Math.floor(elapsed / 1000);
         if (elapsed > 120000) {
           warnLog(`Research taking longer than expected... (elapsed: ${seconds}s)`);
@@ -272,7 +298,9 @@ async function spawnGeminiCli(prompt: string): Promise<string> {
         debugLog(`Gemini process exited with code: ${code}`);
 
         if (code !== 0) {
-          reject(new Error(`Gemini CLI exited with code ${code}: ${stderr}`));
+          const exitMessage = getExitCodeMessage(code);
+          const errorMessage = `Gemini CLI exited with code ${code}. ${exitMessage}`;
+          reject(new Error(errorMessage + (stderr ? ` Details: ${stderr}` : '')));
         } else {
           resolve(stdout);
         }
@@ -310,6 +338,15 @@ function extractJsonFromResult(output: string): Record<string, unknown> | null {
 
 /**
  * Main deep_research function
+ *
+ * Orchestrates the complete research process:
+ * 1. Validates Gemini CLI availability
+ * 2. Builds the research prompt from template
+ * 3. Executes research with retry logic
+ * 4. Returns structured result with metadata
+ *
+ * @param params - Research parameters including topic and depth
+ * @returns Promise resolving to either a successful research result or an error
  */
 export async function deepResearch(params: ResearchParams): Promise<ResearchResult> {
   const startTime = Date.now();
@@ -355,6 +392,9 @@ export async function deepResearch(params: ResearchParams): Promise<ResearchResu
           timestamp: new Date().toISOString(),
           sources_visited: Array.isArray((result.metadata as Record<string, unknown>)?.sources_visited)
             ? (result.metadata as Record<string, unknown>).sources_visited as string[]
+            : undefined,
+          search_queries_used: Array.isArray((result.metadata as Record<string, unknown>)?.search_queries_used)
+            ? (result.metadata as Record<string, unknown>).search_queries_used as string[]
             : undefined,
           iterations: typeof (result.metadata as Record<string, unknown>)?.iterations === 'number'
             ? (result.metadata as Record<string, unknown>).iterations as number
