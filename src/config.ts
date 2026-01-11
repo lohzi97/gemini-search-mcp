@@ -45,6 +45,9 @@ export const config = {
   geminiSystemPrompt: process.env.GEMINI_SYSTEM_PROMPT,
   geminiMaxIterations: parseInt(process.env.GEMINI_CLI_MAX_ITERATIONS || '10', 10),
 
+  // Deep search configuration
+  deepSearchMaxIterations: parseInt(process.env.DEEP_SEARCH_MAX_ITERATIONS || '5', 10),
+
   // Firecrawl configuration
   firecrawlApiKey: process.env.FIRECRAWL_API_KEY || '',
   firecrawlApiUrl: process.env.FIRECRAWL_API_URL || '',

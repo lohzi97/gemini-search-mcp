@@ -4,15 +4,16 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { deepResearch, type ResearchParams } from './deep-research.js';
+import { search, type SearchParams } from './search.js';
+import { deepSearch, type DeepSearchParams } from './deep-search.js';
 import { debugLog, progressLog, errorLog } from './config.js';
 
 /**
  * Create and configure the MCP server
  *
- * Creates an MCP server instance with the `deep_research` tool registered.
- * The tool accepts a research topic and depth, delegates to a Gemini CLI agent,
- * and returns a structured research report with metadata.
+ * Creates an MCP server instance with `search` and `deep_search` tools registered.
+ * The tools accept research queries and delegate to a Gemini CLI agent,
+ * returning structured research reports with metadata.
  *
  * @returns A configured McpServer instance ready to connect to a transport
  */
@@ -30,45 +31,37 @@ export function createServer(): McpServer {
     }
   );
 
-  // Register the deep_research tool
+  // Register the search tool
   server.tool(
-    'deep_research',
-    `Delegates a complex research task to a specialized autonomous Gemini agent.
+    'search',
+    `Performs a single-round search for quick answers.
 
-The agent has access to:
-- Live Google Search via Grounding
-- Firecrawl web scraping tools for JavaScript rendering and clean Markdown output
+This is a lighter, faster option for simple queries that don't require multiple iterations.
 
 Use this for:
-- Deep dives into technical topics
-- Literature reviews and research synthesis
-- Current events and trending topics
-- Comprehensive analysis from multiple sources
-- Questions requiring full page content (not just snippets)
+- Quick fact-finding
+- Simple questions that can be answered with one search
+- Getting current information on a topic
+- When you need results quickly
 
-The agent will:
-1. Search for relevant sources
-2. Scrape full page content (with JS rendering if Firecrawl is available)
-3. Iterate until comprehensive information is gathered
-4. Synthesize findings into a structured report
+The tool will:
+1. Search Google once for relevant sources
+2. Fetch content from the most promising results
+3. Return a concise report
 
-If Firecrawl is unavailable, the agent gracefully degrades to Google Search only.`,
+If Firecrawl is unavailable, the tool gracefully degrades to Google Search only.`,
     {
-      topic: z.string().describe('The specific research question or topic. Be detailed for better results.'),
-      depth: z
-        .enum(['concise', 'detailed'])
-        .default('detailed')
-        .describe('The desired depth of the final report.'),
+      query: z.string().describe('The search query or question.'),
     },
-    async ({ topic, depth }) => {
-      debugLog(`deep_research called: topic="${topic}", depth="${depth}"`);
+    async ({ query }) => {
+      debugLog(`search called: query="${query}"`);
 
       try {
-        const params: ResearchParams = { topic, depth };
-        const result = await deepResearch(params);
+        const params: SearchParams = { query };
+        const result = await search(params);
 
         if (result.success) {
-          progressLog(`Research successful: "${topic}"`);
+          progressLog(`Search successful: "${query}"`);
           return {
             content: [
               {
@@ -78,7 +71,7 @@ If Firecrawl is unavailable, the agent gracefully degrades to Google Search only
             ],
           };
         } else {
-          errorLog(`Research failed: ${result.error.message}`);
+          errorLog(`Search failed: ${result.error.message}`);
           return {
             content: [
               {
@@ -91,7 +84,93 @@ If Firecrawl is unavailable, the agent gracefully degrades to Google Search only
         }
       } catch (error) {
         const err = error as Error;
-        errorLog(`Unexpected error in deep_research: ${err.message}`);
+        errorLog(`Unexpected error in search: ${err.message}`);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  success: false,
+                  error: {
+                    code: 'UNEXPECTED_ERROR',
+                    message: err.message,
+                    details: err.stack,
+                  },
+                },
+                null,
+                2
+              ),
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // Register the deep_search tool
+  server.tool(
+    'deep_search',
+    `Performs multi-round iterative deep search with verification loops.
+
+This provides server-orchestrated iterations with intermediate result passing for comprehensive research.
+
+Use this for:
+- Complex topics requiring thorough verification
+- Research that benefits from multiple validation rounds
+- When you need to track the research process through iterations
+- Comprehensive analysis with verification of findings
+
+The tool will:
+1. Perform initial research with 5-perspective analysis (technical, historical, current trends, expert opinions, statistics)
+2. Iteratively verify and enhance results through multiple rounds
+3. Complete when verified or max iterations (default: 5) is reached
+4. Return final result with metadata including all sources and round-by-round progress
+
+If Firecrawl is unavailable, the tool gracefully degrades to Google Search only.`,
+    {
+      topic: z.string().describe('The specific research question or topic. Be detailed for better results.'),
+      maxIterations: z
+        .number()
+        .min(1)
+        .max(10)
+        .optional()
+        .describe('Maximum number of verification rounds (default: 5, max: 10).'),
+    },
+    async ({ topic, maxIterations }) => {
+      debugLog(`deep_search called: topic="${topic}", maxIterations="${maxIterations ?? 'default'}"`);
+
+      try {
+        const params: DeepSearchParams = { topic, maxIterations };
+        const result = await deepSearch(params);
+
+        if (result.success) {
+          const status = result.verified ? 'verified' : 'completed max iterations';
+          progressLog(`Deep search ${status}: "${topic}"`);
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
+        } else {
+          errorLog(`Deep search failed: ${result.error.message}`);
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+            isError: true,
+          };
+        }
+      } catch (error) {
+        const err = error as Error;
+        errorLog(`Unexpected error in deep_search: ${err.message}`);
         return {
           content: [
             {

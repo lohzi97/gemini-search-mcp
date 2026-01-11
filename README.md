@@ -4,16 +4,16 @@ A Model Context Protocol (MCP) server that wraps the Google Gemini CLI with Fire
 
 ## Overview
 
-**Gemini Research MCP** is an npm package that exposes a single `deep_research` tool to MCP-compliant clients (Claude Desktop, Cursor, etc.). Unlike standard search tools that return shallow snippets, this server acts as a **Sub-Agent Orchestrator** that:
+**Gemini Research MCP** is an npm package that exposes two research tools to MCP-compliant clients (Claude Desktop, Cursor, etc.). Unlike standard search tools that return shallow snippets, this server acts as a **Sub-Agent Orchestrator** that:
 
 1. Spawns an autonomous Gemini CLI instance
 2. Executes live Google Searches via Grounding
 3. Scrapes web pages with JavaScript rendering via Firecrawl MCP
-4. Produces a comprehensive, deep-dive research report
+4. Produces a comprehensive research report
 
 ### Key Features
 
-- **Deep Research**: Autonomous multi-step reasoning with Google Search and Firecrawl
+- **Two Research Modes**: `search` (quick single-round) and `deep_search` (multi-round with verification)
 - **JavaScript Rendering**: Firecrawl handles JS-heavy sites and returns clean Markdown
 - **Graceful Degradation**: Falls back to Google Search if Firecrawl is unavailable
 - **Dual Transport**: Supports both stdio (Claude Desktop) and HTTP (remote clients)
@@ -116,19 +116,37 @@ Add to your config at **`~/.claude.json`** (recommended) or **`~/.claude/mcp_ser
 
 **Note:** Some documentation incorrectly mentions `~/.config/claude-code/mcp_servers.json` - this location is not recognized by Claude Code.
 
-**To verify:** In Claude Code, ask "List available MCP tools" to confirm `deep_research` appears.
+**To verify:** In Claude Code, ask "List available MCP tools" to confirm `search` and `deep_search` appear.
 
-### Using the Tool
+### Using the Tools
 
-The `deep_research` tool takes two parameters:
+This MCP server provides two research tools for different use cases:
 
-- `topic` (string, required): The research question or topic
-- `depth` (string, optional): "concise" or "detailed" (default: "detailed")
+#### 1. `search` - Quick Single-Round Search
 
-Example:
+Best for simple queries that don't require multiple iterations.
+
+**Parameters:**
+- `query` (string, required): The search query or question
+
+**Example:**
 ```
-Please research the latest developments in quantum computing for 2024.
-Use the deep_research tool with depth "detailed".
+Please search for the current population of Tokyo.
+Use the search tool.
+```
+
+#### 2. `deep_search` - Multi-Round Iterative Search with Verification
+
+Best for complex topics requiring thorough verification and server-orchestrated iterations.
+
+**Parameters:**
+- `topic` (string, required): The research question or topic
+- `maxIterations` (number, optional): Maximum verification rounds (default: 5, max: 10)
+
+**Example:**
+```
+Please research the impact of AI on healthcare in 2024.
+Use the deep_search tool with maxIterations of 5.
 ```
 
 ## Configuration
@@ -142,6 +160,7 @@ Use the deep_research tool with depth "detailed".
 | `FIRECRAWL_API_URL` | *none* | URL for self-hosted Firecrawl |
 | `GEMINI_RESEARCH_TIMEOUT` | `300000` | Max wait time in milliseconds |
 | `GEMINI_SYSTEM_PROMPT` | *built-in* | Custom system prompt template |
+| `DEEP_SEARCH_MAX_ITERATIONS` | `5` | Max verification rounds for deep_search |
 | `MCP_SERVER_PORT` | `3000` | HTTP server port |
 | `DEBUG` | `false` | Enable verbose logging |
 
@@ -159,7 +178,7 @@ The package creates `~/.config/gemini-research-mcp/` (Linux) or platform-appropr
 
 ## How It Works
 
-1. User calls `deep_research` tool from their AI client
+1. User calls `search` or `deep_search` tool from their AI client
 2. gemini-research-mcp receives the request and spawns Gemini CLI
 3. Gemini CLI runs from config directory with Firecrawl MCP pre-configured
 4. Gemini CLI uses Google Search and Firecrawl to research the topic
