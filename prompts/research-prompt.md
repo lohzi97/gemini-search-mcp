@@ -6,7 +6,7 @@ Perform a deep research on the following topic: {{topic}}
 ## Tools Available
 You have access to Google Search (`google_web_search`) and Wen Fetch (`web_fetch`) for finding relevant pages and current information.
 
-**Note**: If Firecrawl MCP tools are available (such as `firecrawl_search`, `firecrawl_scrape`, `firecrawl_map`), you may use them for enhanced web scraping with JavaScript rendering. However, if these tools are not available, rely solely on Google Search and Web Fetch.
+**Note**: If Firecrawl MCP tools are availablew (such as `firecrawl_search`, `firecrawl_scrape`, `firecrawl_map`), you may use them for enhanced web scraping with JavaScript rendering. However, if these tools are not available, rely solely on Google Search and Web Fetch.
 
 ## Research Process
 1. Start with Google Search to find relevant sources
