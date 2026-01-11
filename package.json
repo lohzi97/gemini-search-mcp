@@ -32,7 +32,7 @@
     "web-scraping",
     "ai-agent"
   ],
-  "author": "",
+  "author": "LohZJ lohzian@yahoo.com",
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.2",
@@ -52,6 +52,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/gemini-search-mcp"
+    "url": "https://github.com/lohzi97/gemini-search-mcp"
   }
 }

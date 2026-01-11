@@ -42,3 +42,6 @@ Thumbs.db
 
 # Config directory (generated at runtime)
 .config/
+
+# npm pack artifacts
+*.tgz

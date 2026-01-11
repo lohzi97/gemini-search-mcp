@@ -11,9 +11,75 @@ import { debugLog, progressLog, errorLog, config } from './config.js';
 import { ensureConfigSetup } from './config-setup.js';
 
 /**
+ * Display help/usage information
+ */
+function showHelp(): void {
+  console.error(`
+gemini-search-mcp-http - HTTP MCP Server for Gemini-powered Web Search
+
+DESCRIPTION:
+  An HTTP-based MCP (Model Context Protocol) server that orchestrates Google
+  Gemini CLI for web search with JavaScript rendering via Firecrawl.
+
+USAGE:
+  gemini-search-mcp-http [OPTIONS]
+
+OPTIONS:
+  --help, -h     Show this help message
+  --version, -v  Show version information
+
+ENVIRONMENT VARIABLES:
+  GEMINI_MODEL        Model to use (default: gemini-2.5-flash)
+  GEMINI_SEARCH_TIMEOUT  Max search duration in ms (default: 300000)
+  FIRECRAWL_API_KEY   API key for Firecrawl (optional, enables JS rendering)
+  MCP_SERVER_PORT     HTTP server port (default: 3000)
+  MCP_SERVER_HOST     HTTP server host (default: 0.0.0.0)
+  DEBUG               Enable verbose logging (set to "true")
+
+ENDPOINTS:
+  POST /mcp      MCP protocol endpoint
+  GET  /health   Health check endpoint
+
+EXAMPLES:
+  # Start HTTP server on default port 3000
+  gemini-search-mcp-http
+
+  # Use custom port
+  MCP_SERVER_PORT=8080 gemini-search-mcp-http
+
+  # Enable debug logging
+  DEBUG=true gemini-search-mcp-http
+`);
+}
+
+/**
+ * Display version information
+ */
+function showVersion(): void {
+  const pkg = JSON.parse(
+    require('fs').readFileSync(
+      require('path').join(__dirname, '..', 'package.json'),
+      'utf-8'
+    )
+  );
+  console.error(`gemini-search-mcp-http v${pkg.version}`);
+}
+
+/**
  * Main entry point for HTTP mode
  */
 async function main(): Promise<void> {
+  // Handle CLI arguments
+  const args = process.argv.slice(2);
+  if (args.includes('--help') || args.includes('-h')) {
+    showHelp();
+    process.exit(0);
+  }
+  if (args.includes('--version') || args.includes('-v')) {
+    showVersion();
+    process.exit(0);
+  }
+
   debugLog('Starting gemini-search-mcp in HTTP mode');
   debugLog(`Config directory: ${config.configDir}`);
   debugLog(`Gemini model: ${config.geminiModel}`);
