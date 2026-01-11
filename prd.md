@@ -1,4 +1,4 @@
-# Product Requirements Document (PRD): Gemini Research MCP
+# Product Requirements Document (PRD): Gemini Search MCP
 
 **Version:** 6.4
 **Date:** January 10, 2026
@@ -6,13 +6,13 @@
 
 ## 1. Executive Summary
 
-The **Gemini Research MCP** is a Node.js-based Model Context Protocol (MCP) server that wraps the official Google Gemini CLI. It exposes a single, high-level tool—`deep_research`—to any MCP-compliant client (e.g., Claude Desktop, Cursor, generic AI Agents).
+The **Gemini Search MCP** is a Node.js-based Model Context Protocol (MCP) server that wraps the official Google Gemini CLI. It exposes two search tools—`search` and `deep_search`—to any MCP-compliant client (e.g., Claude Desktop, Cursor, generic AI Agents).
 
-Unlike standard search tools that return shallow snippets, this server acts as a **Sub-Agent Orchestrator**. When called, it spawns an autonomous Gemini CLI instance capable of multi-step reasoning, executing live Google Searches (via Grounding), and scraping web pages with JavaScript rendering (via Firecrawl MCP) to produce a comprehensive, deep-dive report.
+Unlike standard search tools that return shallow snippets, this server acts as a **Sub-Agent Orchestrator**. When called, it spawns an autonomous Gemini CLI instance capable of multi-step reasoning, executing live Google Searches (via Grounding), and scraping web pages with JavaScript rendering (via Firecrawl MCP) to produce a comprehensive search report.
 
 **Key Innovation:** The package creates a dedicated configuration directory with project-level Gemini CLI settings that pre-configure Firecrawl MCP. When Gemini CLI runs from this directory, it automatically has access to Firecrawl tools for JavaScript rendering. Firecrawl converts pages to clean Markdown optimized for LLM consumption, with built-in retry logic and rate limiting. If Firecrawl is unavailable, Gemini CLI gracefully falls back to its built-in `web_fetch` tool.
 
-**Distribution:** npm package (`gemini-research-mcp`) installed globally via `npm install -g`.
+**Distribution:** npm package (`gemini-search-mcp`) installed globally via `npm install -g`.
 
 ## 2. Problem Statement
 
@@ -30,10 +30,10 @@ The system uses a hierarchical agent approach with Firecrawl MCP for web scrapin
 ```mermaid
 graph TD
     User[User / IDE] -->|"1. Prompt: research(topic)"| MainAI[Main AI Agent<br/>Claude/Cursor/etc.]
-    MainAI -->|"2. MCP Tool Call"| ResearchMCP[Gemini Research MCP Server<br/>npm package]
+    MainAI -->|"2. MCP Tool Call"| SearchMCP[Gemini Search MCP Server<br/>npm package]
 
     subgraph "User's Machine"
-        ResearchMCP -->|"3. Spawns Process<br/>via child_process.spawn<br/>cwd: ~/.config/gemini-research-mcp"| CLI[Gemini CLI Agent]
+        SearchMCP -->|"3. Spawns Process<br/>via child_process.spawn<br/>cwd: ~/.config/gemini-search-mcp"| CLI[Gemini CLI Agent]
 
         CLI -->|"4a. Native Tool Call"| Google[Google Search<br/>Grounding]
 
@@ -44,23 +44,23 @@ graph TD
     end
 
     Google -->|"Search Results"| CLI
-    CLI -->|"7. JSON Report"| ResearchMCP
-    ResearchMCP -->|"8. Final Result"| MainAI
+    CLI -->|"7. JSON Report"| SearchMCP
+    SearchMCP -->|"8. Final Result"| MainAI
 ```
 
 **Key Architectural Points:**
 
-1. **npm Package**: `gemini-research-mcp` is installed globally via npm, available as `gemini-research-mcp` command.
+1. **npm Package**: `gemini-search-mcp` is installed globally via npm, available as `gemini-search-mcp` command.
 
-2. **Configuration Directory**: The package creates `~/.config/gemini-research-mcp/` on first run, containing a project-level `.gemini/settings.json` that pre-configures Firecrawl MCP.
+2. **Configuration Directory**: The package creates `~/.config/gemini-search-mcp/` on first run, containing a project-level `.gemini/settings.json` that pre-configures Firecrawl MCP.
 
 3. **Gemini CLI Prerequisite**: Users must have `@google/gemini-cli` installed and authenticated (browser auth, API key, etc.) before using this package.
 
-4. **Working Directory Isolation**: When spawning the `gemini` process, the package sets `cwd` to `~/.config/gemini-research-mcp/`, ensuring Gemini CLI picks up the project-level settings with Firecrawl MCP configuration.
+4. **Working Directory Isolation**: When spawning the `gemini` process, the package sets `cwd` to `~/.config/gemini-search-mcp/`, ensuring Gemini CLI picks up the project-level settings with Firecrawl MCP configuration.
 
 5. **Graceful Degradation**: If Firecrawl MCP fails to connect (missing API key, service unavailable, etc.), Gemini CLI ignores it and uses its built-in `web_fetch` tool for basic scraping.
 
-6. **Two-Transport Support**: `gemini-research-mcp` server supports both stdio (for local clients like Claude Desktop) and Streamable HTTP (for remote clients).
+6. **Two-Transport Support**: `gemini-search-mcp` server supports both stdio (for local clients like Claude Desktop) and Streamable HTTP (for remote clients).
 
 ## 3.5. Clarified Design Decisions (v6.0)
 
@@ -68,7 +68,7 @@ Based on implementation planning and user requirements, the following design dec
 
 | Aspect | Decision | Rationale |
 |--------|----------|-----------|
-| **Distribution** | npm package | Global npm install (`npm install -g gemini-research-mcp`) for system-wide availability |
+| **Distribution** | npm package | Global npm install (`npm install -g gemini-search-mcp`) for system-wide availability |
 | **Target Client** | Universal/Generic MCP compatibility | Works across Claude Desktop, Cursor, and any MCP-compliant client |
 | **Progress Updates** | Console logging only | Log progress messages to console for debugging (stdout/stderr); no structured progress API |
 | **CLI Interaction** | Stdin piping | Pipe prompt to `gemini` CLI via stdin (no length limitations unlike --prompt flag) |
@@ -77,19 +77,19 @@ Based on implementation planning and user requirements, the following design dec
 | **Package Manager** | npm | Standard Node.js package manager |
 | **Node.js Version** | Latest LTS (Node 22) | Current stable LTS for compatibility |
 | **License** | MIT | Permissive open source license for maximum adoption |
-| **Package Name** | `gemini-research-mcp` | Reflects the core functionality |
+| **Package Name** | `gemini-search-mcp` | Reflects the core functionality |
 | **Prompt Configuration** | Environment variable based | Allow customization via `GEMINI_SYSTEM_PROMPT` env var |
 | **Output Format** | JSON extraction with few-shot | Use system prompt with few-shot examples to ensure JSON output; parse and validate with retry |
-| **Transport Mode** | Separate npm commands | Two binaries: `gemini-research-mcp` (stdio), `gemini-research-mcp-http` (HTTP) |
+| **Transport Mode** | Separate npm commands | Two binaries: `gemini-search-mcp` (stdio), `gemini-search-mcp-http` (HTTP) |
 | **Web Scraping** | Firecrawl MCP (optional) | Firecrawl MCP for JS rendering and clean Markdown output; graceful fallback if unavailable |
-| **Gemini CLI → Firecrawl** | Pre-configured in project-level settings | Gemini CLI has Firecrawl MCP configured in `~/.config/gemini-research-mcp/.gemini/settings.json` |
+| **Gemini CLI → Firecrawl** | Pre-configured in project-level settings | Gemini CLI has Firecrawl MCP configured in `~/.config/gemini-search-mcp/.gemini/settings.json` |
 | **Firecrawl Mode** | Graceful degradation | If Firecrawl unavailable, Gemini CLI falls back to Google Search + built-in web_fetch |
-| **Timeout** | Configurable via env var | `GEMINI_RESEARCH_TIMEOUT` env var (default: 5 minutes) |
+| **Timeout** | Configurable via env var | `GEMINI_SEARCH_TIMEOUT` env var (default: 5 minutes) |
 | **Target Audience** | Individual developers | Focus on simplicity and ease of setup for single users |
 | **Gemini CLI Auth** | User-managed | Users install and authenticate Gemini CLI themselves (browser, API key, etc.) |
 | **HTTP Transport** | Manual Express setup | Use `StreamableHTTPServerTransport` with manual Express app (per SDK examples) |
 | **Gemini Model** | Any model string | `GEMINI_MODEL` env var (default: gemini-2.5-flash), any valid model name allowed |
-| **Config Directory** | `~/.config/gemini-research-mcp/` | Platform-appropriate config directory for project-level Gemini CLI settings |
+| **Config Directory** | `~/.config/gemini-search-mcp/` | Platform-appropriate config directory for project-level Gemini CLI settings |
 | **Settings Generation** | At package first run | Generated on first run if not exists; users can manually edit |
 | **Zod Version** | v4 | Use `zod` (v4) - import directly from 'zod' package |
 | **Progress Logging** | stderr | Use console.error() for progress messages (keeps stdout clean for results) |
@@ -107,12 +107,19 @@ Based on implementation planning and user requirements, the following design dec
 
 ## 4. Functional Requirements
 
-### 4.1. Core MCP Tool
+### 4.1. Core MCP Tools
 
-The server must expose exactly one tool.
+The server exposes two search tools.
 
-* **Tool Name:** `deep_research`
-* **Description:** "Delegates a complex research task to a specialized autonomous Gemini agent. The agent has access to live Google Search and Firecrawl for web scraping with JavaScript rendering. Use this for deep dives, literature reviews, or when you need synthesized answers from multiple sources."
+#### Tool 1: `search`
+
+* **Tool Name:** `search`
+* **Description:** "Performs a single-round search for quick answers. Use this for simple queries that don't require multiple iterations."
+
+#### Tool 2: `deep_search`
+
+* **Tool Name:** `deep_search`
+* **Description:** "Performs multi-round iterative deep search with verification loops. Use this for complex topics requiring thorough verification and comprehensive analysis."
 * **Input Schema:**
 ```json
 {
@@ -152,7 +159,7 @@ The server must expose exactly one tool.
 The package creates a configuration directory with project-level Gemini CLI settings that include Firecrawl MCP configuration.
 
 * **Grounding:** Uses the `Google Search` tool built into the CLI for web search.
-* **Firecrawl MCP Integration:** The package creates `~/.config/gemini-research-mcp/.gemini/settings.json` on first run with Firecrawl MCP pre-configured:
+* **Firecrawl MCP Integration:** The package creates `~/.config/gemini-search-mcp/.gemini/settings.json` on first run with Firecrawl MCP pre-configured:
   ```json
   {
     "mcpServers": {
@@ -170,7 +177,7 @@ The package creates a configuration directory with project-level Gemini CLI sett
   This configuration is created from a template on first run, ensuring Gemini CLI can access Firecrawl tools automatically when run from this directory.
 
 * **How Firecrawl MCP Works:**
-  1. When `gemini-research-mcp` spawns the `gemini` process, it sets `cwd` to `~/.config/gemini-research-mcp/`
+  1. When `gemini-search-mcp` spawns the `gemini` process, it sets `cwd` to `~/.config/gemini-search-mcp/`
   2. Gemini CLI reads the project-level `.gemini/settings.json` and sees Firecrawl MCP configuration
   3. When Gemini CLI needs to scrape a page, it spawns Firecrawl MCP server on-demand via the configured `mcpServers` setting
   4. Firecrawl MCP connects to either cloud API or self-hosted instance (via `FIRECRAWL_API_URL`)
@@ -197,13 +204,13 @@ The package creates a configuration directory with project-level Gemini CLI sett
 * **Build Tool:** `tsup` for fast ESM builds with TypeScript compilation and bundling
 * **Project Structure:**
   ```
-  gemini-research-mcp/
+  gemini-search-mcp/
   ├── src/
   │   ├── server.ts          # Main MCP server setup, tool registration
-  │   ├── deep-research.ts   # Core logic for spawning Gemini CLI and handling output
+  │   ├── deep-search.ts    # Core logic for spawning Gemini CLI and handling output
   │   ├── config.ts          # Configuration, env vars, constants
-  │   ├── index.ts           # Entry point for stdio mode (gemini-research-mcp)
-  │   └── http.ts            # Entry point for HTTP mode (gemini-research-mcp-http)
+  │   ├── index.ts           # Entry point for stdio mode (gemini-search-mcp)
+  │   └── http.ts            # Entry point for HTTP mode (gemini-search-mcp-http)
   ├── templates/
   │   └── gemini-settings.json.template  # Template for Gemini CLI project-level settings.json
   ├── prompts/
@@ -217,7 +224,7 @@ The package creates a configuration directory with project-level Gemini CLI sett
   ```
 * **Runtime Directory (created on first run):**
   ```
-  ~/.config/gemini-research-mcp/
+  ~/.config/gemini-search-mcp/
   └── .gemini/
       └── settings.json      # Generated from template, contains Firecrawl MCP configuration
   ```
@@ -320,12 +327,12 @@ Provide your response in the exact JSON format shown above, with no additional t
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model to use for research (passed via `--model` flag; any valid model name allowed, e.g., `gemini-2.5-flash`, `gemini-2.5-pro`) |
 | `FIRECRAWL_API_KEY` | *Optional (cloud)* | Firecrawl API key for cloud API (get free key at firecrawl.dev) |
 | `FIRECRAWL_API_URL` | *Optional (self-hosted)* | URL for self-hosted Firecrawl instance (e.g., `https://firecrawl.your-domain.com`) |
-| `GEMINI_RESEARCH_TIMEOUT` | `300000` (5 minutes) | Maximum time in milliseconds to wait for Gemini CLI to complete |
+| `GEMINI_SEARCH_TIMEOUT` | `300000` (5 minutes) | Maximum time in milliseconds to wait for Gemini CLI to complete |
 | `GEMINI_SYSTEM_PROMPT` | (see default above) | Custom system prompt template (use `{topic}` and `{depth}` as placeholders) |
-| `GEMINI_RESEARCH_CONFIG_DIR` | *Platform-appropriate* | Directory for project-level Gemini CLI settings (default: `~/.config/gemini-research-mcp/` on Linux) |
+| `GEMINI_SEARCH_CONFIG_DIR` | *Platform-appropriate* | Directory for project-level Gemini CLI settings (default: `~/.config/gemini-search-mcp/` on Linux) |
 | `DEBUG` | `false` | Enable verbose logging for troubleshooting |
-| `MCP_SERVER_PORT` | `3000` | Port for the MCP HTTP server to listen on (used by `gemini-research-mcp-http` binary) |
-| `MCP_SERVER_HOST` | `127.0.0.1` | Host binding for the MCP HTTP server (used by `gemini-research-mcp-http` binary) |
+| `MCP_SERVER_PORT` | `3000` | Port for the MCP HTTP server to listen on (used by `gemini-search-mcp-http` binary) |
+| `MCP_SERVER_HOST` | `127.0.0.1` | Host binding for the MCP HTTP server (used by `gemini-search-mcp-http` binary) |
 | `PROGRESS_LOG_INTERVAL` | `30000` (30 seconds) | Interval in milliseconds for logging progress messages to console |
 | `JSON_MAX_RETRIES` | `3` | Maximum number of retries for JSON parsing when CLI output is malformed |
 | `GEMINI_CLI_MAX_ITERATIONS` | `10` | Maximum research iterations (search/scrape cycles) for Gemini CLI |
@@ -344,7 +351,7 @@ Provide your response in the exact JSON format shown above, with no additional t
 
 ### 5.4. Output Format
 
-The `deep_research` tool returns a structured JSON response. The MCP server parses the JSON output from Gemini CLI and enhances it with execution metadata:
+The `search` and `deep_search` tools return a structured JSON response. The MCP server parses the JSON output from Gemini CLI and enhances it with execution metadata:
 
 **Success Response:**
 ```json
@@ -369,8 +376,8 @@ The `deep_research` tool returns a structured JSON response. The MCP server pars
   "success": false,
   "error": {
     "code": "CLI_TIMEOUT",
-    "message": "Research task exceeded timeout of 300000ms",
-    "details": "Consider increasing GEMINI_RESEARCH_TIMEOUT or simplifying the query"
+    "message": "Search task exceeded timeout of 300000ms",
+    "details": "Consider increasing GEMINI_SEARCH_TIMEOUT or simplifying the query"
   }
 }
 ```
@@ -421,8 +428,8 @@ During long-running research tasks, the MCP server logs progress messages to con
   2. Wait up to 5 seconds for clean exit
   3. Force SIGKILL if necessary
 * **Quota Limits:** If Gemini CLI returns a 429 or Quota error, propagate this clearly to the Main AI.
-* **Firecrawl Unavailable:** If Firecrawl MCP is not configured or fails to start, log a warning but allow research to proceed with Google Search only. Gemini CLI will naturally fall back to available tools.
-* **Startup Failures:** If the gemini-research-mcp server fails to start, log the error and exit with a non-zero status code.
+* **Firecrawl Unavailable:** If Firecrawl MCP is not configured or fails to start, log a warning but allow search to proceed with Google Search only. Gemini CLI will naturally fall back to available tools.
+* **Startup Failures:** If the gemini-search-mcp server fails to start, log the error and exit with a non-zero status code.
 * **Config Directory Creation Failure:** If the config directory cannot be created due to permissions or other issues:
   1. Log a clear error message explaining the problem
   2. Exit with error code 1 (fail fast)
@@ -430,9 +437,9 @@ During long-running research tasks, the MCP server logs progress messages to con
 
 ### 5.7. HTTP Transport Implementation
 
-The `gemini-research-mcp` package provides two separate binaries for different transport modes:
+The `gemini-search-mcp` package provides two separate binaries for different transport modes:
 
-**1. `gemini-research-mcp` (stdio mode - default):**
+**1. `gemini-search-mcp` (stdio mode - default):**
 ```typescript
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
@@ -440,7 +447,7 @@ const transport = new StdioServerTransport();
 await server.connect(transport);
 ```
 
-**2. `gemini-research-mcp-http` (HTTP mode):**
+**2. `gemini-search-mcp-http` (HTTP mode):**
 ```typescript
 import express from 'express';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
@@ -484,10 +491,10 @@ app.listen(port, host, () => {
 **Binary Commands:**
 ```bash
 # Stdio mode (for Claude Desktop)
-gemini-research-mcp
+gemini-search-mcp
 
 # HTTP mode (for remote clients) - port via env var only
-MCP_SERVER_PORT=3000 gemini-research-mcp-http
+MCP_SERVER_PORT=3000 gemini-search-mcp-http
 ```
 
 **HTTP URL Format:**
@@ -502,11 +509,11 @@ The package generates Gemini CLI's project-level `settings.json` file on first r
 **Settings.json Location (Platform-Specific):**
 | Platform | Config Directory Path |
 |----------|----------------------|
-| **Linux** | `~/.config/gemini-research-mcp/.gemini/settings.json` |
-| **macOS** | `~/Library/Application Support/gemini-research-mcp/.gemini/settings.json` |
-| **Windows** | `%APPDATA%\gemini-research-mcp\.gemini\settings.json` (e.g., `C:\Users\<username>\AppData\Roaming\gemini-research-mcp\.gemini\settings.json`) |
+| **Linux** | `~/.config/gemini-search-mcp/.gemini/settings.json` |
+| **macOS** | `~/Library/Application Support/gemini-search-mcp/.gemini/settings.json` |
+| **Windows** | `%APPDATA%\gemini-search-mcp\.gemini\settings.json` (e.g., `C:\Users\<username>\AppData\Roaming\gemini-search-mcp\.gemini\settings.json`) |
 
-- Environment variable override: `GEMINI_RESEARCH_CONFIG_DIR` (default: platform-appropriate as shown above)
+- Environment variable override: `GEMINI_SEARCH_CONFIG_DIR` (default: platform-appropriate as shown above)
 - Users can manually edit this file after first run
 - Implementation uses Node.js `path` and `os` modules for cross-platform path handling
 
@@ -541,7 +548,7 @@ The package generates Gemini CLI's project-level `settings.json` file on first r
 - If variables change after generation, user must delete settings.json and restart server to regenerate
 
 **Working Directory:**
-When spawning the `gemini` process, the package sets `cwd` to the config directory (e.g., `~/.config/gemini-research-mcp/`), ensuring Gemini CLI picks up the project-level settings with Firecrawl MCP configuration.
+When spawning the `gemini` process, the package sets `cwd` to the config directory (e.g., `~/.config/gemini-search-mcp/`), ensuring Gemini CLI picks up the project-level settings with Firecrawl MCP configuration.
 
 ### 5.9. JSON Extraction and Retry Logic
 
@@ -646,7 +653,7 @@ The MCP server implements a robust JSON extraction strategy to handle Gemini CLI
 * [ ] Create `tsup.config.ts` with:
   - ESM output format
   - Node 22 target (`target: 'node22'`) - tsup uses esbuild which supports node22
-  - Dual binary setup (`gemini-research-mcp` and `gemini-research-mcp-http`)
+  - Dual binary setup (`gemini-search-mcp` and `gemini-search-mcp-http`)
   - Output directory: `dist/`
   - Clean build before compilation
   - Source maps for debugging
@@ -654,8 +661,8 @@ The MCP server implements a robust JSON extraction strategy to handle Gemini CLI
   - **`bin` entries**: Two binaries pointing to built files
     ```json
     "bin": {
-      "gemini-research-mcp": "./dist/index.js",
-      "gemini-research-mcp-http": "./dist/http.js"
+      "gemini-search-mcp": "./dist/index.js",
+      "gemini-search-mcp-http": "./dist/http.js"
     }
     ```
   - **`exports` field**: ESM exports for type checking and imports
@@ -705,17 +712,18 @@ The MCP server implements a robust JSON extraction strategy to handle Gemini CLI
 
 ### Phase 2: MCP Server (The "Interface")
 
-* [ ] Implement `deep_research` tool definition with Zod schema
+* [ ] Implement `search` and `deep_search` tool definitions with Zod schema
 * [ ] Implement `src/server.ts` with `@modelcontextprotocol/sdk` using `McpServer` class
-* [ ] Implement `src/index.ts` as entry point for stdio mode (`gemini-research-mcp` binary)
-* [ ] Implement `src/http.ts` as entry point for HTTP mode (`gemini-research-mcp-http` binary)
+* [ ] Implement `src/index.ts` as entry point for stdio mode (`gemini-search-mcp` binary)
+* [ ] Implement `src/http.ts` as entry point for HTTP mode (`gemini-search-mcp-http` binary)
 * [ ] Add stdio transport mode (for Claude Desktop compatibility)
 * [ ] Implement Streamable HTTP transport mode (for remote clients)
 * [ ] Test connection with generic MCP client
 
 ### Phase 3: CLI Integration (The "Brain")
 
-* [ ] Implement `src/deep-research.ts` with `child_process.spawn` to invoke `gemini` via stdin
+* [ ] Implement `src/search.ts` with single-round search logic
+* [ ] Implement `src/deep-search.ts` with multi-round iterative search and `child_process.spawn` to invoke `gemini` via stdin
 * [ ] Pass `--model` flag with value from `GEMINI_MODEL` env var (default: `gemini-2.5-flash`)
 * [ ] Implement prompt construction from template with `{topic}` and `{depth}` substitution
 * [ ] Add `depth` parameter handling (concise vs detailed instructions)
@@ -729,7 +737,7 @@ The MCP server implements a robust JSON extraction strategy to handle Gemini CLI
 
 * [ ] Implement `src/config.ts` for environment variable handling
 * [ ] Implement platform-appropriate config directory detection
-* [ ] Add logic to generate `~/.config/gemini-research-mcp/.gemini/settings.json` from template on first run
+* [ ] Add logic to generate `~/.config/gemini-search-mcp/.gemini/settings.json` from template on first run
 * [ ] Implement Firecrawl MCP configuration in settings.json with env var substitution
 * [ ] Support both cloud API and self-hosted Firecrawl instances
 * [ ] Add graceful degradation when Firecrawl is unavailable (handled by Gemini CLI)
@@ -809,8 +817,8 @@ The MCP server implements a robust JSON extraction strategy to handle Gemini CLI
 ### 7.3. Quick Start Commands (for users)
 
 ```bash
-# Install gemini-research-mcp globally
-npm install -g gemini-research-mcp
+# Install gemini-search-mcp globally
+npm install -g gemini-search-mcp
 
 # First time setup: Install and authenticate Gemini CLI
 npm install -g @google/gemini-cli
@@ -821,10 +829,10 @@ gemini auth login  # This opens browser for OAuth authentication
 export FIRECRAWL_API_KEY=your_firecrawl_api_key
 
 # Start the MCP server (stdio mode - for Claude Desktop)
-gemini-research-mcp
+gemini-search-mcp
 
 # Start the MCP server (HTTP mode - for remote clients)
-MCP_SERVER_PORT=3000 gemini-research-mcp-http
+MCP_SERVER_PORT=3000 gemini-search-mcp-http
 ```
 
 ### 7.4. Claude Desktop Configuration Example
@@ -832,8 +840,8 @@ MCP_SERVER_PORT=3000 gemini-research-mcp-http
 ```json
 {
   "mcpServers": {
-    "gemini-research": {
-      "command": "gemini-research-mcp",
+    "gemini-search": {
+      "command": "gemini-search-mcp",
       "args": [],
       "env": {
         "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}",
@@ -845,7 +853,7 @@ MCP_SERVER_PORT=3000 gemini-research-mcp-http
 ```
 
 **Note:** Before using, ensure:
-1. gemini-research-mcp is installed (`npm install -g gemini-research-mcp`)
+1. gemini-search-mcp is installed (`npm install -g gemini-search-mcp`)
 2. Gemini CLI is installed and authenticated (`npm install -g @google/gemini-cli && gemini auth login`)
 3. (Optional) You have a Firecrawl API key from [Firecrawl.dev](https://www.firecrawl.dev) for JavaScript rendering
 
@@ -865,8 +873,8 @@ MCP_SERVER_PORT=3000 gemini-research-mcp-http
 **v6.3 Changes (from v6.2):**
 
 **Core Architecture:**
-- **npm package distribution** (install via `npm install -g gemini-research-mcp`)
-- **Two separate binaries** for different transport modes (`gemini-research-mcp` for stdio, `gemini-research-mcp-http` for HTTP)
+- **npm package distribution** (install via `npm install -g gemini-search-mcp`)
+- **Two separate binaries** for different transport modes (`gemini-search-mcp` for stdio, `gemini-search-mcp-http` for HTTP)
 - **Firecrawl MCP integration** for JavaScript rendering and clean Markdown output
 - **MCP SDK v1.25.2+** (`@modelcontextprotocol/sdk`) containing all server functionality
 - **Express.js** required for HTTP transport with manual `StreamableHTTPServerTransport` setup
@@ -879,7 +887,7 @@ MCP_SERVER_PORT=3000 gemini-research-mcp-http
 - **Any model string allowed** - no validation on model names (flexible for future models)
 - **Stdin piping** for CLI interaction (no `--output-format json` flag, rely on system prompt)
 - **JSON extraction with retry logic** (up to 3 attempts, identical prompt on retries)
-- **Project-level settings.json** at platform-appropriate config directory
+- **Project-level settings.json** at platform-appropriate config directory (`~/.config/gemini-search-mcp/`)
 - **Graceful degradation** when Firecrawl unavailable (handled by Gemini CLI)
 
 **Transport & Communication:**

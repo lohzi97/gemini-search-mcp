@@ -2,19 +2,19 @@
 
 ## Purpose
 
-**Gemini Research MCP** is a Model Context Protocol (MCP) server that provides deep web research capabilities by orchestrating the Google Gemini CLI as a sub-agent. The project enables AI assistants (like Claude, Cursor) to conduct comprehensive research with JavaScript-rendered web content through Firecrawl integration.
+**Gemini Search MCP** is a Model Context Protocol (MCP) server that provides web search capabilities by orchestrating the Google Gemini CLI as a sub-agent. The project enables AI assistants (like Claude, Cursor) to conduct comprehensive search with JavaScript-rendered web content through Firecrawl integration.
 
 The key architectural pattern is a "Russian Doll" agent nesting:
 ```
-User/IDE → Main AI (Claude/Cursor) → gemini-research-mcp → Gemini CLI → {Google Search, Firecrawl MCP}
+User/IDE → Main AI (Claude/Cursor) → gemini-search-mcp → Gemini CLI → {Google Search, Firecrawl MCP}
 ```
 
 ### Goals
 
-1. **Seamless Research Integration**: Provide a single `deep_research` tool that AI assistants can call for comprehensive web research
+1. **Seamless Search Integration**: Provide `search` and `deep_search` tools that AI assistants can call for web search
 2. **Graceful Degradation**: Function with or without Firecrawl MCP (falls back to Gemini's built-in `web_fetch`)
 3. **Config Isolation**: Create project-level Gemini CLI configuration to avoid conflicting with user's personal Gemini settings
-4. **Structured Output**: Return research results as typed JSON with metadata for easy parsing
+4. **Structured Output**: Return search results as typed JSON with metadata for easy parsing
 
 ## Tech Stack
 
@@ -59,11 +59,11 @@ User/IDE → Main AI (Claude/Cursor) → gemini-research-mcp → Gemini CLI → 
 ### Architecture Patterns
 
 1. **Config Isolation Pattern**: Project creates its own Gemini CLI config directory at platform-specific paths to avoid conflicts:
-   - Linux: `~/.config/gemini-research-mcp/.gemini/`
-   - macOS: `~/Library/Application Support/gemini-research-mcp/.gemini/`
-   - Windows: `%APPDATA%\gemini-research-mcp\.gemini\`
+   - Linux: `~/.config/gemini-search-mcp/.gemini/`
+   - macOS: `~/Library/Application Support/gemini-search-mcp/.gemini/`
+   - Windows: `%APPDATA%\gemini-search-mcp\.gemini\`
 
-2. **Stdin Piping for Prompts**: Research prompts are piped via stdin (not `--prompt` flag) due to CLI argument length limits
+2. **Stdin Piping for Prompts**: Search prompts are piped via stdin (not `--prompt` flag) due to CLI argument length limits
 
 3. **Multi-Strategy JSON Extraction**: Tries fenced code blocks first (```` ```json ... ``` ````), then raw object patterns for extracting research results
 
@@ -80,7 +80,8 @@ src/
 ├── index.ts          # Stdio mode entry point
 ├── http.ts           # HTTP mode entry point
 ├── server.ts         # MCP server creation, tool registration
-├── deep-research.ts  # Core research orchestration, Gemini CLI spawn
+├── search.ts         # Single-round search orchestration
+├── deep-search.ts    # Multi-round iterative search orchestration, Gemini CLI spawn
 ├── config.ts         # Environment variables, logging utilities
 └── config-setup.ts   # Config directory creation, settings.json generation
 
@@ -88,7 +89,7 @@ templates/
 └── gemini-settings.json.template  # Template for Gemini CLI config
 
 prompts/
-└── research-prompt.md  # System prompt template for research tasks
+└── search-prompt.md  # System prompt template for search tasks
 
 dist/                 # Built output (not in source control)
 ```
@@ -107,20 +108,20 @@ Currently uses manual testing via `node test-research.ts`. No automated test sui
 
 ### Model Context Protocol (MCP)
 
-MCP is a protocol for connecting AI assistants to external tools and data sources. This project implements an MCP **server** that exposes a single `deep_research` tool.
+MCP is a protocol for connecting AI assistants to external tools and data sources. This project implements an MCP **server** that exposes `search` and `deep_search` tools.
 
 ### Transport Modes
 
 1. **Stdio (default)**: Communicates via stdin/stdout, used by most MCP clients
 2. **HTTP (optional)**: Runs an Express server on port 3000, useful for remote connections
 
-### Research Flow
+### Search Flow
 
-1. Client calls `deep_research` with `{ topic: string, depth: 'concise' | 'detailed' }`
+1. Client calls `search` with `{ query: string }` or `deep_search` with `{ topic: string, maxIterations?: number }`
 2. Server validates Gemini CLI is available
-3. Server builds research prompt from template with placeholders
+3. Server builds search prompt from template with placeholders
 4. Server spawns Gemini CLI with config directory containing Firecrawl MCP tools
-5. Gemini CLI performs research using available tools (search, scrape, etc.)
+5. Gemini CLI performs search using available tools (search, scrape, etc.)
 6. Server parses JSON output from CLI (with retry logic)
 7. Server returns structured result with metadata
 
@@ -153,8 +154,8 @@ See `.env.example` for complete list. Key variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GEMINI_MODEL` | `gemini-2.5-flash` | Model to use for research |
-| `GEMINI_RESEARCH_TIMEOUT` | `300000` | Max research duration in ms |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Model to use for search |
+| `GEMINI_SEARCH_TIMEOUT` | `300000` | Max search duration in ms |
 | `FIRECRAWL_API_KEY` | (empty) | Firecrawl API key |
 | `DEBUG` | `false` | Enable verbose logging |
 | `MCP_SERVER_PORT` | `3000` | HTTP server port |

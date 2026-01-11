@@ -1,10 +1,10 @@
-# Gemini Research MCP
+# Gemini Search MCP
 
-A Model Context Protocol (MCP) server that wraps the Google Gemini CLI with Firecrawl integration for deep research capabilities.
+A Model Context Protocol (MCP) server that wraps the Google Gemini CLI with Firecrawl integration for web search capabilities.
 
 ## Overview
 
-**Gemini Research MCP** is an npm package that exposes two research tools to MCP-compliant clients (Claude Desktop, Cursor, etc.). Unlike standard search tools that return shallow snippets, this server acts as a **Sub-Agent Orchestrator** that:
+**Gemini Search MCP** is an npm package that exposes two search tools to MCP-compliant clients (Claude Desktop, Cursor, etc.). Unlike standard search tools that return shallow snippets, this server acts as a **Sub-Agent Orchestrator** that:
 
 1. Spawns an autonomous Gemini CLI instance
 2. Executes live Google Searches via Grounding
@@ -22,7 +22,7 @@ A Model Context Protocol (MCP) server that wraps the Google Gemini CLI with Fire
 ## Architecture
 
 ```
-User / IDE → Main AI → gemini-research-mcp → Gemini CLI → {Google Search, Firecrawl}
+User / IDE → Main AI → gemini-search-mcp → Gemini CLI → {Google Search, Firecrawl}
 ```
 
 The package creates a dedicated configuration directory with project-level Gemini CLI settings that pre-configure Firecrawl MCP. When Gemini CLI runs from this directory, it automatically has access to Firecrawl tools.
@@ -39,7 +39,7 @@ The package creates a dedicated configuration directory with project-level Gemin
 
 ```bash
 # Install globally via npm
-npm install -g gemini-research-mcp
+npm install -g gemini-search-mcp
 
 # First time setup: Install and authenticate Gemini CLI
 npm install -g @google/gemini-cli
@@ -55,12 +55,12 @@ export FIRECRAWL_API_KEY=your_firecrawl_api_key
 
 **Stdio mode (for Claude Desktop):**
 ```bash
-gemini-research-mcp
+gemini-search-mcp
 ```
 
 **HTTP mode (for remote clients):**
 ```bash
-MCP_SERVER_PORT=3000 gemini-research-mcp-http
+MCP_SERVER_PORT=3000 gemini-search-mcp-http
 ```
 
 ### Claude Desktop Configuration
@@ -73,8 +73,8 @@ Add to your Claude Desktop config file:
 ```json
 {
   "mcpServers": {
-    "gemini-research": {
-      "command": "gemini-research-mcp",
+    "gemini-search": {
+      "command": "gemini-search-mcp",
       "args": [],
       "env": {
         "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}",
@@ -90,10 +90,10 @@ Add to your Claude Desktop config file:
 **Method 1: CLI Command**
 
 ```bash
-claude mcp add --transport stdio gemini-research \
+claude mcp add --transport stdio gemini-search \
   --env FIRECRAWL_API_KEY=fc-your-api-key-here \
   --env GEMINI_MODEL=gemini-2.5-flash \
-  -- gemini-research-mcp
+  -- gemini-search-mcp
 ```
 
 **Method 2: Manual Configuration**
@@ -103,8 +103,8 @@ Add to your config at **`~/.claude.json`** (recommended) or **`~/.claude/mcp_ser
 ```json
 {
   "mcpServers": {
-    "gemini-research": {
-      "command": "gemini-research-mcp",
+    "gemini-search": {
+      "command": "gemini-search-mcp",
       "env": {
         "FIRECRAWL_API_KEY": "fc-your-api-key-here",
         "GEMINI_MODEL": "gemini-2.5-flash"
@@ -158,7 +158,7 @@ Use the deep_search tool with maxIterations of 5.
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model to use |
 | `FIRECRAWL_API_KEY` | *none* | Firecrawl API key for cloud API |
 | `FIRECRAWL_API_URL` | *none* | URL for self-hosted Firecrawl |
-| `GEMINI_RESEARCH_TIMEOUT` | `300000` | Max wait time in milliseconds |
+| `GEMINI_SEARCH_TIMEOUT` | `300000` | Max wait time in milliseconds |
 | `GEMINI_SYSTEM_PROMPT` | *built-in* | Custom system prompt template |
 | `DEEP_SEARCH_MAX_ITERATIONS` | `5` | Max verification rounds for deep_search |
 | `MCP_SERVER_PORT` | `3000` | HTTP server port |
@@ -168,10 +168,10 @@ See `.env.example` for all available options.
 
 ### Configuration Directory
 
-The package creates `~/.config/gemini-research-mcp/` (Linux) or platform-appropriate equivalent containing:
+The package creates `~/.config/gemini-search-mcp/` (Linux) or platform-appropriate equivalent containing:
 
 ```
-~/.config/gemini-research-mcp/
+~/.config/gemini-search-mcp/
 └── .gemini/
     └── settings.json  # Generated from template, contains Firecrawl MCP config
 ```
@@ -179,7 +179,7 @@ The package creates `~/.config/gemini-research-mcp/` (Linux) or platform-appropr
 ## How It Works
 
 1. User calls `search` or `deep_search` tool from their AI client
-2. gemini-research-mcp receives the request and spawns Gemini CLI
+2. gemini-search-mcp receives the request and spawns Gemini CLI
 3. Gemini CLI runs from config directory with Firecrawl MCP pre-configured
 4. Gemini CLI uses Google Search and Firecrawl to research the topic
 5. Results are returned as structured JSON to the main AI
@@ -198,23 +198,23 @@ If Firecrawl fails to connect, the system gracefully degrades to Google Search o
 - Your Firecrawl account has available credits
 
 ### Timeout Errors
-Increase `GEMINI_RESEARCH_TIMEOUT` for complex queries:
+Increase `GEMINI_SEARCH_TIMEOUT` for complex queries:
 ```bash
-export GEMINI_RESEARCH_TIMEOUT=600000  # 10 minutes
+export GEMINI_SEARCH_TIMEOUT=600000  # 10 minutes
 ```
 
 ### Debug Mode
 Enable verbose logging:
 ```bash
-DEBUG=true gemini-research-mcp
+DEBUG=true gemini-search-mcp
 ```
 
 ## Development
 
 ```bash
 # Clone repository
-git clone https://github.com/your-username/gemini-research-mcp.git
-cd gemini-research-mcp
+git clone https://github.com/your-username/gemini-search-mcp.git
+cd gemini-search-mcp
 
 # Install dependencies
 npm install
@@ -247,4 +247,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - [Product Requirements Document](prd.md)
 - [Phase 0 Verification Results](PHASE_0_RESULTS.md)
-- [Issue Tracker](https://github.com/your-username/gemini-research-mcp/issues)
+- [Issue Tracker](https://github.com/your-username/gemini-search-mcp/issues)

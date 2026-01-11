@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Gemini Research MCP** is a Model Context Protocol server that orchestrates the Google Gemini CLI as a sub-agent for deep web research. The key architectural pattern is a "Russian Doll" agent nesting:
+**Gemini Search MCP** is a Model Context Protocol server that orchestrates the Google Gemini CLI as a sub-agent for web search. The key architectural pattern is a "Russian Doll" agent nesting:
 
 ```
-User/IDE → Main AI (Claude/Cursor) → gemini-research-mcp → Gemini CLI → {Google Search, Firecrawl MCP}
+User/IDE → Main AI (Claude/Cursor) → gemini-search-mcp → Gemini CLI → {Google Search, Firecrawl MCP}
 ```
 
 The MCP server spawns a Gemini CLI instance with pre-configured Firecrawl MCP tools, enabling comprehensive research with JavaScript rendering. It gracefully degrades if Firecrawl is unavailable.
@@ -21,7 +21,7 @@ npm run build
 # Development mode (stdio transport, uses tsx for hot-reload)
 npm run dev
 
-# Manual test of deep_research tool (requires GEMINI_MODEL env var)
+# Manual test of deep_search tool (requires GEMINI_MODEL env var)
 node test-research.ts
 
 # Build before publishing (automatic)
@@ -32,24 +32,25 @@ npm run prepublishOnly
 
 ### Entry Points
 
-- **`src/index.ts`** - Stdio mode entry point → `gemini-research-mcp` binary
-- **`src/http.ts`** - HTTP mode entry point → `gemini-research-mcp-http` binary
+- **`src/index.ts`** - Stdio mode entry point → `gemini-search-mcp` binary
+- **`src/http.ts`** - HTTP mode entry point → `gemini-search-mcp-http` binary
 
 Both call `ensureConfigSetup()` before creating the MCP server.
 
 ### Core Modules
 
-- **`src/server.ts`** - Creates MCP server, registers `deep_research` tool with Zod schema
-- **`src/deep-research.ts`** - Orchestrates Gemini CLI spawn, output parsing, retries
+- **`src/server.ts`** - Creates MCP server, registers `search` and `deep_search` tools with Zod schema
+- **`src/search.ts`** - Orchestrates single-round search
+- **`src/deep-search.ts`** - Orchestrates multi-round iterative search with verification
 - **`src/config.ts`** - Environment variable handling and logging utilities
 - **`src/config-setup.ts`** - Config directory creation and settings.json generation from template
 
 ### Config Isolation Pattern
 
 The project creates a project-level Gemini CLI configuration at platform-specific paths:
-- Linux: `~/.config/gemini-research-mcp/.gemini/settings.json`
-- macOS: `~/Library/Application Support/gemini-research-mcp/.gemini/settings.json`
-- Windows: `%APPDATA%\gemini-research-mcp\.gemini\settings.json`
+- Linux: `~/.config/gemini-search-mcp/.gemini/settings.json`
+- macOS: `~/Library/Application Support/gemini-search-mcp/.gemini/settings.json`
+- Windows: `%APPDATA%\gemini-search-mcp\.gemini\settings.json`
 
 This config pre-configures Firecrawl MCP as an available tool. When spawning Gemini CLI, we set `cwd` to this config directory so the CLI picks up the MCP tools.
 
@@ -65,7 +66,7 @@ This config pre-configures Firecrawl MCP as an available tool. When spawning Gem
 
 See `.env.example` for full list. Key variables:
 - `GEMINI_MODEL` - Model to use (default: `gemini-2.5-flash`)
-- `GEMINI_RESEARCH_TIMEOUT` - Max research duration in ms (default: 300000)
+- `GEMINI_SEARCH_TIMEOUT` - Max search duration in ms (default: 300000)
 - `FIRECRAWL_API_KEY` / `FIRECRAWL_API_URL` - Firecrawl configuration
 - `DEBUG` - Enable verbose logging to stderr
 - `MCP_SERVER_PORT` - HTTP server port (default: 3000)

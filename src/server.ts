@@ -1,5 +1,5 @@
 /**
- * MCP Server implementation for Gemini Research MCP
+ * MCP Server implementation for Gemini Search MCP
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -23,7 +23,7 @@ export function createServer(): McpServer {
   // Create the MCP server
   const server = new McpServer(
     {
-      name: 'gemini-research-mcp',
+      name: 'gemini-search-mcp',
       version: '0.1.0',
     },
     {

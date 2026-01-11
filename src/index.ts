@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Entry point for gemini-research-mcp (stdio mode)
+ * Entry point for gemini-search-mcp (stdio mode)
  * Connects to MCP clients via stdin/stdout (e.g., Claude Desktop)
  */
 
@@ -13,7 +13,7 @@ import { ensureConfigSetup } from './config-setup.js';
  * Main entry point
  */
 async function main(): Promise<void> {
-  debugLog('Starting gemini-research-mcp in stdio mode');
+  debugLog('Starting gemini-search-mcp in stdio mode');
   debugLog(`Config directory: ${config.configDir}`);
   debugLog(`Gemini model: ${config.geminiModel}`);
 

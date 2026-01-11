@@ -3,8 +3,8 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   // Entry points for the two binaries
   entry: {
-    index: 'src/index.ts',      // gemini-research-mcp (stdio mode)
-    http: 'src/http.ts',        // gemini-research-mcp-http (HTTP mode)
+    index: 'src/index.ts',      // gemini-search-mcp (stdio mode)
+    http: 'src/http.ts',        // gemini-search-mcp-http (HTTP mode)
   },
 
   // Output format: ESM for Node.js 22+

@@ -51,7 +51,7 @@ Configured MCP servers:
 **Conclusion:**
 - ✅ `child_process.spawn` with explicit `cwd` works correctly
 - ✅ Gemini CLI picks up project-level `.gemini/settings.json` when `cwd` is set
-- ✅ This confirms the core architectural approach for `gemini-research-mcp`
+- ✅ This confirms the core architectural approach for `gemini-search-mcp`
 
 ---
 
@@ -94,10 +94,10 @@ Configured MCP servers:
 Gemini CLI does **NOT** perform automatic environment variable substitution for `${VAR}` patterns in `.gemini/settings.json`. The `env` values are passed as literal strings to the spawned MCP server process.
 
 **Solution (per PRD spec):**
-The `gemini-research-mcp` package must perform environment variable substitution when generating the settings.json file:
+The `gemini-search-mcp` package must perform environment variable substitution when generating the settings.json file:
 
 ```typescript
-// When generating ~/.config/gemini-research-mcp/.gemini/settings.json
+// When generating ~/.config/gemini-search-mcp/.gemini/settings.json
 const apiKey = process.env.FIRECRAWL_API_KEY || '';
 const apiUrl = process.env.FIRECRAWL_API_URL || '';
 
@@ -157,7 +157,7 @@ All critical architectural assumptions are verified. The project can proceed to 
 ### Implementation Recommendations
 
 1. **Environment Variable Substitution**: Implement as described in Test Project 3 notes
-2. **Config Directory**: Use platform-appropriate config directory (`~/.config/gemini-research-mcp/`)
+2. **Config Directory**: Use platform-appropriate config directory (`~/.config/gemini-search-mcp/`)
 3. **Settings.json Generation**: Generate on first run if not exists
 4. **Graceful Degradation**: Handle cases where Firecrawl is unavailable (Gemini CLI will handle this naturally)
 

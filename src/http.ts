@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Entry point for gemini-research-mcp-http (HTTP mode)
+ * Entry point for gemini-search-mcp-http (HTTP mode)
  * Connects to MCP clients via HTTP (e.g., remote clients)
  */
 
@@ -14,7 +14,7 @@ import { ensureConfigSetup } from './config-setup.js';
  * Main entry point for HTTP mode
  */
 async function main(): Promise<void> {
-  debugLog('Starting gemini-research-mcp in HTTP mode');
+  debugLog('Starting gemini-search-mcp in HTTP mode');
   debugLog(`Config directory: ${config.configDir}`);
   debugLog(`Gemini model: ${config.geminiModel}`);
   debugLog(`HTTP server: ${config.mcpServerHost}:${config.mcpServerPort}`);
@@ -33,7 +33,7 @@ async function main(): Promise<void> {
   app.get('/health', (_req, res) => {
     res.json({
       status: 'healthy',
-      service: 'gemini-research-mcp',
+      service: 'gemini-search-mcp',
       version: '0.1.0',
       timestamp: new Date().toISOString(),
     });

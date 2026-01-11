@@ -1,5 +1,5 @@
 /**
- * Configuration and environment variable handling for Gemini Research MCP
+ * Configuration and environment variable handling for Gemini Search MCP
  */
 
 import * as os from 'os';
@@ -12,7 +12,7 @@ import 'dotenv/config';
  * Get the platform-appropriate config directory
  */
 export function getConfigDir(): string {
-  const envOverride = process.env.GEMINI_RESEARCH_CONFIG_DIR;
+  const envOverride = process.env.GEMINI_SEARCH_CONFIG_DIR;
   if (envOverride) {
     return envOverride;
   }
@@ -25,7 +25,7 @@ export function getConfigDir(): string {
         ? process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming')
         : path.join(os.homedir(), '.config');
 
-  return path.join(baseDir, 'gemini-research-mcp');
+  return path.join(baseDir, 'gemini-search-mcp');
 }
 
 /**
@@ -41,7 +41,7 @@ export function getGeminiSettingsPath(): string {
 export const config = {
   // Gemini configuration
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-  geminiTimeout: parseInt(process.env.GEMINI_RESEARCH_TIMEOUT || '300000', 10),
+  geminiTimeout: parseInt(process.env.GEMINI_SEARCH_TIMEOUT || '300000', 10),
   geminiSystemPrompt: process.env.GEMINI_SYSTEM_PROMPT,
   geminiMaxIterations: parseInt(process.env.GEMINI_CLI_MAX_ITERATIONS || '10', 10),
 
