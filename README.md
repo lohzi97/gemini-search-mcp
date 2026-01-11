@@ -67,6 +67,9 @@ MCP_SERVER_PORT=3000 gemini-research-mcp-http
 
 Add to your Claude Desktop config file:
 
+**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
 ```json
 {
   "mcpServers": {
@@ -81,6 +84,39 @@ Add to your Claude Desktop config file:
   }
 }
 ```
+
+### Claude Code (CLI) Configuration
+
+**Method 1: CLI Command**
+
+```bash
+claude mcp add --transport stdio gemini-research \
+  --env FIRECRAWL_API_KEY=fc-your-api-key-here \
+  --env GEMINI_MODEL=gemini-2.5-flash \
+  -- gemini-research-mcp
+```
+
+**Method 2: Manual Configuration**
+
+Add to your config at **`~/.claude.json`** (recommended) or **`~/.claude/mcp_servers.json`**:
+
+```json
+{
+  "mcpServers": {
+    "gemini-research": {
+      "command": "gemini-research-mcp",
+      "env": {
+        "FIRECRAWL_API_KEY": "fc-your-api-key-here",
+        "GEMINI_MODEL": "gemini-2.5-flash"
+      }
+    }
+  }
+}
+```
+
+**Note:** Some documentation incorrectly mentions `~/.config/claude-code/mcp_servers.json` - this location is not recognized by Claude Code.
+
+**To verify:** In Claude Code, ask "List available MCP tools" to confirm `deep_research` appears.
 
 ### Using the Tool
 
