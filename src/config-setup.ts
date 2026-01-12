@@ -23,9 +23,13 @@ const __dirname = path.dirname(__filename);
  * which supports both local development and global npm installations.
  */
 export async function ensureConfigSetup(): Promise<void> {
-  const { configDir, geminiSettingsPath } = config;
+  const { configDir, geminiSettingsPath, firecrawlApiKey, firecrawlApiUrl } = config;
 
   debugLog(`Ensuring config directory exists: ${configDir}`);
+
+  // Check if Firecrawl credentials are provided
+  const hasFirecrawlConfig = !!(firecrawlApiKey || firecrawlApiUrl);
+  debugLog(`Firecrawl MCP ${hasFirecrawlConfig ? 'enabled' : 'disabled (no credentials provided)'}`);
 
   try {
     // Create config directory if it doesn't exist
@@ -34,49 +38,83 @@ export async function ensureConfigSetup(): Promise<void> {
     const geminiDir = path.join(configDir, '.gemini');
     await fs.mkdir(geminiDir, { recursive: true });
 
-    // Check if settings.json exists
-    const settingsExists = await fs
+    // Check if settings.json exists and whether it needs regeneration
+    let settingsExists = await fs
       .access(geminiSettingsPath)
       .then(() => true)
       .catch(() => false);
 
-    if (!settingsExists) {
+    // Check if existing settings match current Firecrawl config
+    let needsRegeneration = !settingsExists;
+    if (settingsExists) {
+      try {
+        const existingContent = await fs.readFile(geminiSettingsPath, 'utf-8');
+        const existing = JSON.parse(existingContent);
+        const hasFirecrawlInSettings = !!(existing.mcpServers?.firecrawl);
+        if (hasFirecrawlInSettings !== hasFirecrawlConfig) {
+          debugLog('Firecrawl configuration changed, regenerating settings.json');
+          needsRegeneration = true;
+        }
+      } catch {
+        // If we can't read the existing settings, regenerate
+        debugLog('Could not read existing settings, regenerating');
+        needsRegeneration = true;
+      }
+    }
+
+    if (needsRegeneration) {
       debugLog('Gemini CLI settings.json not found, generating from template');
 
-      // Read the template
-      // Resolve path relative to the built file location (supports global npm installs)
-      const templatePath = path.join(__dirname, '..', 'templates', 'gemini-settings.json.template');
-      let templateContent: string;
+      // Build the settings based on whether Firecrawl is configured
+      const settings: Record<string, unknown> = {};
 
-      try {
-        templateContent = await fs.readFile(templatePath, 'utf-8');
-      } catch {
-        // If template doesn't exist, use default
-        debugLog('Template not found, using default settings');
-        templateContent = JSON.stringify(
-          {
-            mcpServers: {
-              firecrawl: {
-                command: 'npx',
-                args: ['-y', 'firecrawl-mcp'],
-                env: {
-                  FIRECRAWL_API_KEY: '{{FIRECRAWL_API_KEY}}',
-                  FIRECRAWL_API_URL: '{{FIRECRAWL_API_URL}}',
-                  HTTP_STREAMABLE_SERVER: 'true',
-                },
-              },
+      if (hasFirecrawlConfig) {
+        settings.mcpServers = {
+          firecrawl: {
+            command: 'npx',
+            args: ['-y', 'firecrawl-mcp'],
+            env: {
+              FIRECRAWL_API_KEY: firecrawlApiKey,
+              FIRECRAWL_API_URL: firecrawlApiUrl,
+              HTTP_STREAMABLE_SERVER: 'true',
             },
           },
-          null,
-          2
-        );
+        };
+        debugLog('Firecrawl MCP server configuration included');
+      } else {
+        // Empty mcpServers or no mcpServers at all
+        settings.mcpServers = {};
+        debugLog('Firecrawl MCP server configuration skipped (no credentials)');
       }
 
-      // Substitute environment variables
-      // IMPORTANT: We substitute actual values at generation time, not placeholders
-      let settingsContent = templateContent
-        .replace(/\{\{FIRECRAWL_API_KEY\}\}/g, config.firecrawlApiKey)
-        .replace(/\{\{FIRECRAWL_API_URL\}\}/g, config.firecrawlApiUrl);
+      // Try to read and use template if it exists
+      const templatePath = path.join(__dirname, '..', 'templates', 'gemini-settings.json.template');
+      let settingsContent: string;
+
+      try {
+        const templateContent = await fs.readFile(templatePath, 'utf-8');
+        // Substitute environment variables in template
+        settingsContent = templateContent
+          .replace(/\{\{FIRECRAWL_API_KEY\}\}/g, firecrawlApiKey)
+          .replace(/\{\{FIRECRAWL_API_URL\}\}/g, firecrawlApiUrl);
+
+        // If no Firecrawl config, remove the firecrawl server from the template
+        if (!hasFirecrawlConfig) {
+          const parsed = JSON.parse(settingsContent);
+          if (parsed.mcpServers?.firecrawl) {
+            delete parsed.mcpServers.firecrawl;
+            // If mcpServers is now empty, remove it entirely
+            if (Object.keys(parsed.mcpServers).length === 0) {
+              delete parsed.mcpServers;
+            }
+            settingsContent = JSON.stringify(parsed, null, 2);
+          }
+        }
+      } catch {
+        // If template doesn't exist, use the settings object we built
+        debugLog('Template not found, using default settings');
+        settingsContent = JSON.stringify(settings, null, 2);
+      }
 
       // Write the settings file
       await fs.writeFile(geminiSettingsPath, settingsContent, 'utf-8');

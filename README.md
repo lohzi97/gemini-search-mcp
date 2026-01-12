@@ -39,7 +39,7 @@ The package creates a dedicated configuration directory with project-level Gemin
 
 ```bash
 # Install globally via npm
-npm install -g gemini-search-mcp
+npm install -g @lohzi97/gemini-search-mcp
 
 # First time setup: Install and authenticate Gemini CLI
 npm install -g @google/gemini-cli

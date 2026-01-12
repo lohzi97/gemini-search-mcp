@@ -101,6 +101,7 @@ export async function spawnGeminiCli(prompt: string): Promise<string> {
     let stdout = '';
     let stderr = '';
     let process: ChildProcess | null = null;
+    let outputReceivedTime: number | null = null;
 
     // Progress log interval
     const progressInterval = setInterval(() => {
@@ -131,6 +132,8 @@ export async function spawnGeminiCli(prompt: string): Promise<string> {
       }
     };
 
+    let timedOut = false;
+
     try {
       // Spawn gemini process with stdin piping
       process = spawn('gemini', ['--model', config.geminiModel], {
@@ -141,13 +144,20 @@ export async function spawnGeminiCli(prompt: string): Promise<string> {
       // Set up timeout
       const timeout = setTimeout(() => {
         errorLog('Research timeout reached');
+        timedOut = true;
         cleanup();
         reject(new Error(`Research task exceeded timeout of ${config.geminiTimeout}ms`));
       }, config.geminiTimeout);
 
       // Handle stdout
       process.stdout?.on('data', (data) => {
-        stdout += data.toString();
+        const chunk = data.toString();
+        stdout += chunk;
+        if (outputReceivedTime === null) {
+          outputReceivedTime = Date.now();
+          const timeToFirstOutput = outputReceivedTime - startTime;
+          debugLog(`First stdout data received after ${timeToFirstOutput}ms (${chunk.length} bytes)`);
+        }
       });
 
       // Handle stderr
@@ -163,13 +173,26 @@ export async function spawnGeminiCli(prompt: string): Promise<string> {
         clearTimeout(timeout);
         clearInterval(progressInterval);
 
-        debugLog(`Gemini process exited with code: ${code}`);
+        debugLog(`Gemini process exited with code: ${code}${timedOut ? ' (after timeout)' : ''}`);
+
+        // If timeout already occurred, don't resolve/reject again
+        if (timedOut) {
+          debugLog('Ignoring close event - timeout already occurred');
+          return;
+        }
 
         if (code !== 0) {
           const exitMessage = getExitCodeMessage(code);
           const errorMessage = `Gemini CLI exited with code ${code}. ${exitMessage}`;
           reject(new Error(errorMessage + (stderr ? ` Details: ${stderr}` : '')));
         } else {
+          const resolveTime = Date.now();
+          const totalDuration = resolveTime - startTime;
+          debugLog(`Resolving with ${stdout.length} bytes of output (total: ${totalDuration}ms)`);
+          if (outputReceivedTime) {
+            const timeFromFirstOutput = resolveTime - outputReceivedTime;
+            debugLog(`Time from first output to close: ${timeFromFirstOutput}ms`);
+          }
           resolve(stdout);
         }
       });
@@ -179,7 +202,10 @@ export async function spawnGeminiCli(prompt: string): Promise<string> {
         clearTimeout(timeout);
         clearInterval(progressInterval);
         cleanup();
-        reject(new Error(`Failed to spawn gemini process: ${err.message}`));
+        // If timeout already occurred, don't reject again
+        if (!timedOut) {
+          reject(new Error(`Failed to spawn gemini process: ${err.message}`));
+        }
       });
 
       // Write prompt to stdin and close
