@@ -1,6 +1,6 @@
 {
   "name": "@lohzi97/gemini-search-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "An MCP server that wraps Google Gemini CLI with Firecrawl integration for web search capabilities",
   "type": "module",
   "main": "./dist/index.js",
