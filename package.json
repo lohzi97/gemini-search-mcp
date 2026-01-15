@@ -35,7 +35,6 @@
   "author": "LohZJ lohzian@yahoo.com",
   "license": "MIT",
   "dependencies": {
-    "@lohzi97/gemini-search-mcp": "file:lohzi97-gemini-search-mcp-0.1.0.tgz",
     "@modelcontextprotocol/sdk": "^1.25.2",
     "dotenv": "^16.0.0",
     "express": "^4.18.0",
