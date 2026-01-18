@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch",
+      "Read",
+      "Glob",
+      "Grep",
+      "Bash(openspec:*)"
+    ],
+    "deny": [],
+    "ask": [
+      "Bash(openspec archive:*)"
+    ]
+  },
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/ai-permission-review.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
