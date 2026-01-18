@@ -6,10 +6,11 @@
  */
 
 import { spawn } from 'child_process';
-import { readFileSync, appendFileSync, existsSync } from 'fs';
+import { readFileSync, appendFileSync, existsSync, unlinkSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { homedir } from 'os';
+import { execSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -122,6 +123,49 @@ function checkReadPreApproved() {
 }
 
 /**
+ * Parse transcript and generate compacted markdown history
+ * Returns the path to the generated history file, or null if failed
+ */
+function generateConversationHistory(transcriptPath, sessionId, projectDir) {
+  if (!transcriptPath || !existsSync(transcriptPath)) {
+    debug(`Transcript not found at: ${transcriptPath}`, projectDir);
+    return null;
+  }
+
+  try {
+    const historyPath = join(projectDir, '.claude', `history-${sessionId}.md`);
+    const parserPath = join(__dirname, 'jsonl-history-parser.js');
+
+    // Run the parser
+    const result = execSync(`node "${parserPath}" "${transcriptPath}" "${historyPath}"`, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 10000, // 10 seconds
+    });
+
+    debug(`History generated at: ${historyPath}`, projectDir);
+    return historyPath;
+  } catch (err) {
+    debug(`Failed to generate history: ${err.message}`, projectDir);
+    return null;
+  }
+}
+
+/**
+ * Clean up temporary history file
+ */
+function cleanupHistoryFile(historyPath, projectDir) {
+  if (historyPath && existsSync(historyPath)) {
+    try {
+      unlinkSync(historyPath);
+      debug(`Cleaned up history file: ${historyPath}`, projectDir);
+    } catch (err) {
+      debug(`Failed to cleanup history file: ${err.message}`, projectDir);
+    }
+  }
+}
+
+/**
  * Spawn Claude Code and get its response
  */
 function askClaudeForReview(prompt) {
@@ -209,16 +253,37 @@ function extractDecision(output) {
 /**
  * Construct the review prompt
  */
-function buildReviewPrompt(toolName, description, toolInput) {
+function buildReviewPrompt(toolName, description, toolInput, historyPath) {
+  let contextSection = '';
+
+  if (historyPath) {
+    contextSection = `
+
+## Conversation Context
+
+To understand the full context of this request, read the conversation history at:
+
+\`${historyPath}\`
+
+This history shows:
+- What has been discussed and attempted previously
+- The reasoning chain that led to this request
+- Any relevant background about the project
+
+Review this history to understand INTENT before evaluating the current tool call.
+`;
+  }
+
   return `You are a security reviewer for Claude Code operations. Your task is to review whether this tool call should be approved.
 
 ## Your Instructions
 
 1. First, review the project's approval guidelines by running: /approve-action
-2. Read the project context (CLAUDE.md, README.md, etc.) to understand the project
-3. Evaluate the specific tool call against the guidelines
-4. Make a decision: allow, deny, or ask
-
+2. ${historyPath ? `Read the conversation history at \`${historyPath}\` to understand the context that led to this request.` : 'Review the conversation context to understand what has led to this request.'}
+3. Read the project context (CLAUDE.md, README.md, etc.) to understand the project
+4. Evaluate the specific tool call against the guidelines
+5. Make a decision: allow, deny, or ask
+${contextSection}
 ## Tool Call to Review
 
 Tool Name: ${toolName}
@@ -245,8 +310,9 @@ Decision meanings:
 
 Base your decision on:
 1. The approval guidelines from /approve-action
-2. Security and safety considerations
-3. Risk vs benefit analysis
+2. The conversation history (what led to this request)
+3. Security and safety considerations
+4. Risk vs benefit analysis
 
 Respond with ONLY the JSON object, nothing else.`;
 }
@@ -272,6 +338,9 @@ async function logDecision(sessionId, toolName, decision, riskLevel, target, rea
  * Main function
  */
 async function main() {
+  // Declare at function scope for cleanup in catch block
+  let historyPath = null;
+
   try {
     // Get project directory early for logging
     const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
@@ -300,6 +369,7 @@ async function main() {
     const toolInput = hookData.tool_input || hookData.toolInput || {};
     const sessionId = hookData.session_id || hookData.sessionId || 'unknown';
     const description = hookData.description || toolInput.description || '';
+    const transcriptPath = hookData.transcript_path || hookData.transcriptPath || null;
 
     // Also check environment variables as fallback
     const finalToolName = process.env.CLAUDE_TOOL_NAME || toolName;
@@ -313,6 +383,13 @@ async function main() {
       return;
     }
 
+    // AskUserQuestion should always be handled by the user directly, not AI reviewer
+    if (finalToolName === 'AskUserQuestion') {
+      debug('AskUserQuestion detected - deferring to user', projectDir);
+      process.exit(0);
+      return;
+    }
+
     const target = extractTarget(finalToolName, finalToolInput);
 
     // Check if Read is pre-approved (required to avoid hook recursion)
@@ -323,8 +400,13 @@ async function main() {
       return;
     }
 
+    // Generate conversation history from transcript
+    if (transcriptPath) {
+      historyPath = generateConversationHistory(transcriptPath, sessionId, projectDir);
+    }
+
     // Build and send review prompt
-    const prompt = buildReviewPrompt(finalToolName, description, finalToolInput);
+    const prompt = buildReviewPrompt(finalToolName, description, finalToolInput, historyPath);
     debug('About to call claude reviewer', projectDir);
 
     const aiOutput = await askClaudeForReview(prompt);
@@ -349,6 +431,7 @@ async function main() {
     // Return decision based on result
     switch (decision) {
       case 'allow':
+        cleanupHistoryFile(historyPath, projectDir);
         console.log(JSON.stringify({
           hookSpecificOutput: {
             hookEventName: 'PermissionRequest',
@@ -359,23 +442,28 @@ async function main() {
         break;
 
       case 'deny':
+        cleanupHistoryFile(historyPath, projectDir);
         debug("AI reviewer returned 'deny' - manual review required", projectDir);
         // Exit without output - let user handle
         process.exit(0);
         break;
 
       case 'ask':
+        cleanupHistoryFile(historyPath, projectDir);
         debug("AI reviewer returned 'ask' - manual review required", projectDir);
         // Exit without output - let user handle
         process.exit(0);
         break;
 
       default:
+        cleanupHistoryFile(historyPath, projectDir);
         debug(`Invalid AI decision: ${decision}`);
         process.exit(1);
         break;
     }
   } catch (err) {
+    const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+    cleanupHistoryFile(historyPath, projectDir);
     debug(`Unexpected error: ${err.message}`);
     debug(err.stack);
     process.exit(1);
