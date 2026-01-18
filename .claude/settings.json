@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/ai-permission-review.sh"
+            "command": "node .claude/hooks/ai-permission-review.js"
           }
         ]
       }
