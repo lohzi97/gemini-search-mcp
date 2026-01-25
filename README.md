@@ -1,6 +1,6 @@
 # Gemini Search MCP
 
-A Model Context Protocol (MCP) server that wraps the Google Gemini CLI with Firecrawl integration for web search capabilities.
+A Model Context Protocol (MCP) server that wraps the Google Gemini CLI for powerful web search capabilities.
 
 ## Overview
 
@@ -8,32 +8,31 @@ A Model Context Protocol (MCP) server that wraps the Google Gemini CLI with Fire
 
 1. Spawns an autonomous Gemini CLI instance
 2. Executes live Google Searches via Grounding
-3. Scrapes web pages with JavaScript rendering via Firecrawl MCP
-4. Produces a comprehensive research report
+3. Fetches and analyzes web content for comprehensive research
+4. Produces a structured research report with citations
 
 ### Key Features
 
 - **Two Research Modes**: `search` (quick single-round) and `deep_search` (multi-round with verification)
-- **JavaScript Rendering**: Firecrawl handles JS-heavy sites and returns clean Markdown
-- **Graceful Degradation**: Falls back to Google Search if Firecrawl is unavailable
+- **Smart Web Fetching**: Leverages Gemini's built-in web capabilities to retrieve and analyze content
+- **Optional Enhancement**: Can integrate Firecrawl for JavaScript-rendered sites when available
 - **Dual Transport**: Supports both stdio (Claude Desktop) and HTTP (remote clients)
 - **Configurable**: Environment variables for model selection, timeouts, and more
 
 ## Architecture
 
 ```
-User / IDE → Main AI → gemini-search-mcp → Gemini CLI → {Google Search, Firecrawl}
+User / IDE → Main AI → gemini-search-mcp → Gemini CLI → Google Search + Web Fetch
 ```
 
-The package creates a dedicated configuration directory with project-level Gemini CLI settings that pre-configure Firecrawl MCP. When Gemini CLI runs from this directory, it automatically has access to Firecrawl tools.
+The package creates a dedicated configuration directory with project-level Gemini CLI settings, ensuring isolated configuration. When Gemini CLI runs from this directory, it can use built-in web tools or optionally connect to Firecrawl if configured.
 
 ## Prerequisites
 
 1. **Node.js 22+ LTS** - Required for npm package installation
 2. **Gemini CLI** - Install via `npm install -g @google/gemini-cli`
 3. **Gemini CLI Authentication** - Run `gemini auth login` or set `GEMINI_API_KEY`
-4. **Firecrawl Access (Optional)** - Get a free API key from [Firecrawl.dev](https://www.firecrawl.dev)
-5. **MCP Client** - Claude Desktop, Cursor, or any MCP-compliant client
+4. **MCP Client** - Claude Desktop, Cursor, or any MCP-compliant client
 
 ## Installation
 
@@ -45,7 +44,7 @@ npm install -g @lohzi97/gemini-search-mcp
 npm install -g @google/gemini-cli
 gemini auth login  # Opens browser for OAuth
 
-# (Optional) Set Firecrawl API key for JavaScript rendering
+# (Optional) Set Firecrawl API key for enhanced JS rendering on complex sites
 export FIRECRAWL_API_KEY=your_firecrawl_api_key
 ```
 
@@ -85,16 +84,19 @@ Add to your Claude Desktop config file:
 }
 ```
 
+Note: `FIRECRAWL_API_KEY` is optional - remove if not using Firecrawl.
+
 ### Claude Code (CLI) Configuration
 
 **Method 1: CLI Command**
 
 ```bash
 claude mcp add --transport stdio gemini-search \
-  --env FIRECRAWL_API_KEY=fc-your-api-key-here \
   --env GEMINI_MODEL=gemini-2.5-flash \
   -- gemini-search-mcp
 ```
+
+Add `--env FIRECRAWL_API_KEY=your-key` if you want to use Firecrawl.
 
 **Method 2: Manual Configuration**
 
@@ -106,13 +108,14 @@ Add to your config at **`~/.claude.json`** (recommended) or **`~/.claude/mcp_ser
     "gemini-search": {
       "command": "gemini-search-mcp",
       "env": {
-        "FIRECRAWL_API_KEY": "fc-your-api-key-here",
         "GEMINI_MODEL": "gemini-2.5-flash"
       }
     }
   }
 }
 ```
+
+Add `"FIRECRAWL_API_KEY": "your-key"` if you want to use Firecrawl.
 
 **Note:** Some documentation incorrectly mentions `~/.config/claude-code/mcp_servers.json` - this location is not recognized by Claude Code.
 
@@ -156,13 +159,13 @@ Use the deep_search tool with maxIterations of 5.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model to use |
-| `FIRECRAWL_API_KEY` | *none* | Firecrawl API key for cloud API |
-| `FIRECRAWL_API_URL` | *none* | URL for self-hosted Firecrawl |
 | `GEMINI_SEARCH_TIMEOUT` | `300000` | Max wait time in milliseconds |
 | `GEMINI_SYSTEM_PROMPT` | *built-in* | Custom system prompt template |
 | `DEEP_SEARCH_MAX_ITERATIONS` | `5` | Max verification rounds for deep_search |
 | `MCP_SERVER_PORT` | `3000` | HTTP server port |
 | `DEBUG` | `false` | Enable verbose logging |
+| `FIRECRAWL_API_KEY` | *none* | Optional Firecrawl API key |
+| `FIRECRAWL_API_URL` | *none* | Optional URL for self-hosted Firecrawl |
 
 See `.env.example` for all available options.
 
@@ -173,15 +176,15 @@ The package creates `~/.config/gemini-search-mcp/` (Linux) or platform-appropria
 ```
 ~/.config/gemini-search-mcp/
 └── .gemini/
-    └── settings.json  # Generated from template, contains Firecrawl MCP config
+    └── settings.json  # Generated from template, may include Firecrawl MCP if configured
 ```
 
 ## How It Works
 
 1. User calls `search` or `deep_search` tool from their AI client
 2. gemini-search-mcp receives the request and spawns Gemini CLI
-3. Gemini CLI runs from config directory with Firecrawl MCP pre-configured
-4. Gemini CLI uses Google Search and Firecrawl to research the topic
+3. Gemini CLI runs from config directory with its own isolated settings
+4. Gemini CLI uses Google Search and built-in web tools to research the topic
 5. Results are returned as structured JSON to the main AI
 
 ## Troubleshooting
@@ -192,10 +195,11 @@ Error: gemini command not found
 ```
 **Solution:** Install Gemini CLI via `npm install -g @google/gemini-cli`
 
-### Firecrawl Unavailable
-If Firecrawl fails to connect, the system gracefully degrades to Google Search only. Check:
-- `FIRECRAWL_API_KEY` is set correctly
-- Your Firecrawl account has available credits
+### Firecrawl Configuration
+Firecrawl is optional and not required for basic functionality. If you choose to use it:
+- Set `FIRECRAWL_API_KEY` for cloud API or `FIRECRAWL_API_URL` for self-hosted
+- Ensure your account has available credits
+- The package will use Gemini's built-in web tools if Firecrawl is unavailable
 
 ### Timeout Errors
 Increase `GEMINI_SEARCH_TIMEOUT` for complex queries:
@@ -240,7 +244,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 ## Acknowledgments
 
 - [Google Gemini CLI](https://github.com/google/gemini-cli) - The underlying CLI tool
-- [Firecrawl](https://www.firecrawl.dev) - Web scraping with JavaScript rendering
 - [Model Context Protocol](https://modelcontextprotocol.io) - The protocol specification
 
 ## Links

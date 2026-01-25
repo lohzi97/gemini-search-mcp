@@ -2,17 +2,17 @@
 
 ## Purpose
 
-**Gemini Search MCP** is a Model Context Protocol (MCP) server that provides web search capabilities by orchestrating the Google Gemini CLI as a sub-agent. The project enables AI assistants (like Claude, Cursor) to conduct comprehensive search with JavaScript-rendered web content through Firecrawl integration.
+**Gemini Search MCP** is a Model Context Protocol (MCP) server that provides web search capabilities by orchestrating the Google Gemini CLI as a sub-agent. The project enables AI assistants (like Claude, Cursor) to conduct comprehensive research using Google Search and web content analysis, with optional support for JavaScript-rendered sites via Firecrawl.
 
 The key architectural pattern is a "Russian Doll" agent nesting:
 ```
-User/IDE → Main AI (Claude/Cursor) → gemini-search-mcp → Gemini CLI → {Google Search, Firecrawl MCP}
+User/IDE → Main AI (Claude/Cursor) → gemini-search-mcp → Gemini CLI → Google Search + Web Tools
 ```
 
 ### Goals
 
 1. **Seamless Search Integration**: Provide `search` and `deep_search` tools that AI assistants can call for web search
-2. **Graceful Degradation**: Function with or without Firecrawl MCP (falls back to Gemini's built-in `web_fetch`)
+2. **Flexible Web Access**: Work with Gemini's built-in web tools, with optional Firecrawl for JS-heavy sites
 3. **Config Isolation**: Create project-level Gemini CLI configuration to avoid conflicting with user's personal Gemini settings
 4. **Structured Output**: Return search results as typed JSON with metadata for easy parsing
 
@@ -143,9 +143,9 @@ MCP is a protocol for connecting AI assistants to external tools and data source
 
 ### Optional
 
-- **Firecrawl MCP**: For JavaScript-rendered web scraping
+- **Firecrawl**: For enhanced JavaScript-rendered web scraping
   - API key from https://www.firecrawl.dev
-  - If unavailable, Gemini CLI falls back to built-in `web_fetch`
+  - If unavailable, Gemini CLI uses its built-in web tools
   - Configured via `FIRECRAWL_API_KEY` and `FIRECRAWL_API_URL` env vars
 
 ### Environment Variables
