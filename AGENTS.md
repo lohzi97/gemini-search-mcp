@@ -132,6 +132,7 @@ errorLog('Error message');       // Always logged
 - `src/server.ts` - MCP server setup and tool registration
 - `src/search.ts` - Single-round search implementation
 - `src/deep-search.ts` - Multi-round deep search implementation
+- `src/fetch.ts` - Webpage fetch implementation
 - `src/utils.ts` - Shared utility functions
 - `src/config.ts` - Configuration and environment variables
 - `src/config-setup.ts` - Initial configuration setup
