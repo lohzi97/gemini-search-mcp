@@ -190,9 +190,9 @@ export async function spawnGeminiCli(prompt: string, model?: string): Promise<st
       if (elapsed > 15000) {
         const seconds = Math.floor(elapsed / 1000);
         if (elapsed > 120000) {
-          warnLog(`Research taking longer than expected... (elapsed: ${seconds}s)`);
+          warnLog(`Gemini CLI taking longer than expected... (elapsed: ${seconds}s)`);
         } else {
-          progressLog(`Research in progress... (elapsed: ${seconds}s)`);
+          progressLog(`Gemini CLI running... (elapsed: ${seconds}s)`);
         }
       }
     }, config.progressLogInterval);
@@ -218,6 +218,8 @@ export async function spawnGeminiCli(prompt: string, model?: string): Promise<st
     try {
       // Build CLI arguments - only include --model if specified
       const args = model ? ['--model', model] : [];
+      args.push('--allowed-tools');
+      args.push('web_fetch');
       debugLog(`CLI args: ${args.length > 0 ? args.join(' ') : '(no model flag, using auto-select)'}`);
 
       // Spawn gemini process with stdin piping

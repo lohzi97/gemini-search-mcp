@@ -6,6 +6,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { search, type SearchParams } from './search.js';
 import { deepSearch, type DeepSearchParams } from './deep-search.js';
+import { fetchWebpage, type FetchParams } from './fetch.js';
 import { debugLog, progressLog, errorLog } from './config.js';
 
 /**
@@ -171,6 +172,84 @@ If Firecrawl is unavailable, the tool gracefully degrades to Google Search only.
       } catch (error) {
         const err = error as Error;
         errorLog(`Unexpected error in deep_search: ${err.message}`);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  success: false,
+                  error: {
+                    code: 'UNEXPECTED_ERROR',
+                    message: err.message,
+                    details: err.stack,
+                  },
+                },
+                null,
+                2
+              ),
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // Register the fetch_webpage tool
+  server.tool(
+    'fetch_webpage',
+    `Fetches and converts a webpage to clean markdown format.
+
+This tool directly accesses webpage content without performing a search. It handles JavaScript-rendered pages and protected sites (e.g., Cloudflare) via browser MCP tools.
+
+Use this for:
+- Reading specific webpage content directly
+- Accessing documentation or articles when you know the URL
+- Getting the full content of a page without search
+
+The tool will:
+1. Fetch HTML content using Gemini CLI (with browser MCP for JS/protected pages)
+2. Convert HTML to Markdown using Turndown library
+3. Clean up the markdown with AI to remove navigation, fix code blocks, etc.
+4. Return clean markdown with metadata including cleanup status
+
+If the conversion or cleanup fails, the tool gracefully falls back to raw HTML or Turndown-only markdown.`,
+    {
+      url: z.string().describe('The URL of the webpage to fetch'),
+    },
+    async ({ url }) => {
+      debugLog(`fetch_webpage called: url="${url}"`);
+
+      try {
+        const params: FetchParams = { url };
+        const result = await fetchWebpage(params);
+
+        if (result.success) {
+          progressLog(`Webpage fetch successful: "${url}"`);
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
+        } else {
+          errorLog(`Webpage fetch failed: ${result.error.message}`);
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+            isError: true,
+          };
+        }
+      } catch (error) {
+        const err = error as Error;
+        errorLog(`Unexpected error in fetch_webpage: ${err.message}`);
         return {
           content: [
             {

@@ -13,11 +13,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * Ensure the config directory and Gemini CLI settings exist
+ * Ensure config directory and Gemini CLI settings exist
  * This function:
  * 1. Creates the config directory if it doesn't exist
- * 2. Creates the .gemini subdirectory if it doesn't exist
+ * 2. Creates .gemini subdirectory if it doesn't exist
  * 3. Generates settings.json from template if it doesn't exist
+ * 4. Creates policies directory and writes policy file for WebFetch tool
  *
  * The template path is resolved relative to the built file location,
  * which supports both local development and global npm installations.
@@ -37,6 +38,9 @@ export async function ensureConfigSetup(): Promise<void> {
 
     const geminiDir = path.join(configDir, '.gemini');
     await fs.mkdir(geminiDir, { recursive: true });
+
+    const policiesDir = path.join(geminiDir, 'policies');
+    await fs.mkdir(policiesDir, { recursive: true });
 
     // Check if settings.json exists and whether it needs regeneration
     let settingsExists = await fs
@@ -121,6 +125,18 @@ export async function ensureConfigSetup(): Promise<void> {
       debugLog(`Generated Gemini CLI settings at: ${geminiSettingsPath}`);
     } else {
       debugLog('Gemini CLI settings.json already exists, using existing configuration');
+    }
+
+    // Create/update policies directory with WebFetch policy
+    const policyFilePath = path.join(policiesDir, 'auto-approve-webfetch.toml');
+    const policyTemplatePath = path.join(__dirname, '..', 'templates', 'gemini-policies.toml.template');
+
+    try {
+      await fs.copyFile(policyTemplatePath, policyFilePath);
+      debugLog(`Created WebFetch policy at: ${policyFilePath}`);
+    } catch (error) {
+      const err = error as Error;
+      errorLog(`Failed to create policy file: ${err.message}`);
     }
   } catch (err) {
     const error = err as Error;

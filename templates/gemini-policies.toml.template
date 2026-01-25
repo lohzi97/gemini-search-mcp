@@ -1,0 +1,9 @@
+# Policy file for gemini-search-mcp
+# Automatically allow web_fetch tool for webpage fetching operations
+
+# Rule 1: Automatically allow web_fetch tool for all URLs
+[[rule]]
+toolName = "web_fetch"
+decision = "allow"
+priority = 100
+description = "Auto-approve all web_fetch calls for gemini-search-mcp automation"
