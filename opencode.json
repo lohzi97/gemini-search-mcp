@@ -1,0 +1,17 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "gemini-search": {
+      "type": "local",
+      "command": ["gemini-search-mcp"],
+      "enabled": true,
+      "environment": {
+        "GEMINI_SEARCH_TIMEOUT": "300000",
+        "DEBUG": "true",
+        "GEMINI_MODEL": "gemini-3-pro-preview",
+        "GEMINI_CORRECTION_MODEL": "gemini-2.5-flash-lite",
+      },
+      "timeout": 900000
+    }
+  },
+}
