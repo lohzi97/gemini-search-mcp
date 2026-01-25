@@ -40,7 +40,8 @@ export function getGeminiSettingsPath(): string {
  */
 export const config = {
   // Gemini configuration
-  geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+  geminiModel: process.env.GEMINI_MODEL,
+  geminiCorrectionModel: process.env.GEMINI_CORRECTION_MODEL,
   geminiTimeout: parseInt(process.env.GEMINI_SEARCH_TIMEOUT || '300000', 10),
   geminiSystemPrompt: process.env.GEMINI_SYSTEM_PROMPT,
   geminiMaxIterations: parseInt(process.env.GEMINI_CLI_MAX_ITERATIONS || '10', 10),

@@ -8,9 +8,8 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import {
   checkGeminiCli,
-  extractJsonFromOutput,
-  spawnGeminiCli,
-  validateResearchResult,
+  executeResearchWithCorrection,
+  DEEP_SEARCH_SCHEMA,
 } from './utils.js';
 import { config, debugLog, progressLog, errorLog } from './config.js';
 
@@ -100,9 +99,10 @@ async function buildDeepSearchPrompt(topic: string): Promise<string> {
     const template = await fs.readFile(templatePath, 'utf-8');
 
     // Replace placeholders
+    const modelDisplay = config.geminiModel || 'auto-select';
     const prompt = template
       .replace(/\{\{topic\}\}/g, topic)
-      .replace(/\{\{model\}\}/g, config.geminiModel);
+      .replace(/\{\{model\}\}/g, modelDisplay);
 
     return prompt;
   } catch (error) {
@@ -128,13 +128,14 @@ async function buildVerifyPrompt(
 
     // Replace placeholders
     const maxRemaining = maxIterations - currentRound;
+    const modelDisplay = config.geminiModel || 'auto-select';
     const prompt = template
       .replace(/\{\{topic\}\}/g, topic)
       .replace(/\{\{previous_result\}\}/g, previousResult)
       .replace(/\{\{current_round\}\}/g, currentRound.toString())
       .replace(/\{\{max_iterations\}\}/g, maxIterations.toString())
       .replace(/\{\{max_remaining\}\}/g, maxRemaining.toString())
-      .replace(/\{\{model\}\}/g, config.geminiModel);
+      .replace(/\{\{model\}\}/g, modelDisplay);
 
     return prompt;
   } catch (error) {
@@ -145,45 +146,20 @@ async function buildVerifyPrompt(
 }
 
 /**
- * Execute a single search round with retry logic
+ * Execute a single search round with retry logic and JSON correction fallback
+ *
+ * This helper function wraps executeResearchWithCorrection for deep search rounds.
+ *
+ * @param prompt - The research prompt for this round
+ * @returns Promise resolving to intermediate result with data and detected model
  */
-async function executeSearchRound(
-  prompt: string,
-  maxRetries: number = config.jsonMaxRetries
-): Promise<IntermediateResult> {
-  let lastError: Error | null = null;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    debugLog(`Search round attempt ${attempt}/${maxRetries}`);
-
-    try {
-      const result = await spawnGeminiCli(prompt);
-
-      // Try to extract JSON from output
-      const parsed = extractJsonFromOutput(result);
-
-      if (parsed && validateResearchResult(parsed)) {
-        debugLog('Valid JSON result obtained for round');
-        return parsed as IntermediateResult;
-      }
-
-      // Validation failed, retry
-      debugLog('JSON validation failed for round, retrying...');
-      lastError = new Error('JSON validation failed');
-    } catch (error) {
-      debugLog(`Search round attempt ${attempt} failed:`, error);
-      lastError = error as Error;
-    }
-
-    // Wait before retry (exponential backoff)
-    if (attempt < maxRetries) {
-      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
-      await new Promise((resolve) => setTimeout(resolve, delay));
-    }
-  }
-
-  // All retries failed
-  throw lastError || new Error('All search round attempts failed');
+async function executeSearchRound(prompt: string): Promise<{ data: IntermediateResult; detectedModel?: string }> {
+  const result = await executeResearchWithCorrection(
+    prompt,
+    DEEP_SEARCH_SCHEMA,
+    config.geminiModel
+  );
+  return { data: result.data as unknown as IntermediateResult, detectedModel: result.detectedModel };
 }
 
 /**
@@ -224,6 +200,7 @@ export async function deepSearch(params: DeepSearchParams): Promise<DeepSearchRe
   const rounds: RoundMetadata[] = [];
   let currentReport = '';
   let verified = false;
+  let detectedModel: string | undefined;
 
   try {
     // Round 1: Initial deep research
@@ -231,7 +208,9 @@ export async function deepSearch(params: DeepSearchParams): Promise<DeepSearchRe
     const initialPrompt = await buildDeepSearchPrompt(topic);
     debugLog('Initial deep search prompt built successfully');
 
-    const initialResult = await executeSearchRound(initialPrompt);
+    const initialRound = await executeSearchRound(initialPrompt);
+    const initialResult = initialRound.data;
+    detectedModel = initialRound.detectedModel;
 
     if (!initialResult.success) {
       return {
@@ -270,7 +249,11 @@ export async function deepSearch(params: DeepSearchParams): Promise<DeepSearchRe
         maxIterations
       );
 
-      const verifyResult = await executeSearchRound(verifyPrompt);
+      const verifyRound = await executeSearchRound(verifyPrompt);
+      const verifyResult = verifyRound.data;
+      if (verifyRound.detectedModel) {
+        detectedModel = verifyRound.detectedModel;
+      }
 
       if (!verifyResult.success) {
         debugLog(`Verification round ${round} failed, continuing with previous result`);
@@ -297,6 +280,9 @@ export async function deepSearch(params: DeepSearchParams): Promise<DeepSearchRe
     const statusMsg = verified ? 'verified' : 'completed max iterations';
     progressLog(`Deep search ${statusMsg} in ${duration}ms`);
 
+    // Use configured model, or detected model, or placeholder
+    const model = config.geminiModel || detectedModel || 'auto-detected';
+
     return {
       success: true,
       report: currentReport,
@@ -304,7 +290,7 @@ export async function deepSearch(params: DeepSearchParams): Promise<DeepSearchRe
       metadata: {
         duration_ms: duration,
         topic,
-        model: config.geminiModel,
+        model,
         timestamp: new Date().toISOString(),
         total_iterations: rounds.length,
         verified,

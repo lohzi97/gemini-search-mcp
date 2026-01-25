@@ -8,7 +8,8 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import {
   checkGeminiCli,
-  executeResearchWithRetry,
+  executeResearchWithCorrection,
+  SEARCH_SCHEMA,
 } from './utils.js';
 import { config, debugLog, progressLog, errorLog } from './config.js';
 
@@ -72,10 +73,11 @@ async function buildSearchPrompt(query: string): Promise<string> {
     const template = await fs.readFile(templatePath, 'utf-8');
 
     // Replace placeholders
+    const modelDisplay = config.geminiModel || 'auto-select';
     const prompt = template
       .replace(/\{\{query\}\}/g, query)
       .replace(/\{\{topic\}\}/g, query) // For backward compatibility with template
-      .replace(/\{\{model\}\}/g, config.geminiModel);
+      .replace(/\{\{model\}\}/g, modelDisplay);
 
     return prompt;
   } catch (error) {
@@ -121,22 +123,29 @@ export async function search(params: SearchParams): Promise<SearchResult> {
   const prompt = await buildSearchPrompt(query);
   debugLog('Search prompt built successfully');
 
-  // Execute search with retry logic
+  // Execute search with retry logic and JSON correction fallback
   try {
-    const result = await executeResearchWithRetry(prompt);
+    const { data: result, detectedModel } = await executeResearchWithCorrection(
+      prompt,
+      SEARCH_SCHEMA,
+      config.geminiModel
+    );
 
     const duration = Date.now() - startTime;
     progressLog(`Search completed in ${duration}ms`);
 
     // Check if the result indicates success
     if (result.success && typeof result.report === 'string') {
+      // Use configured model, or detected model, or placeholder
+      const model = config.geminiModel || detectedModel || 'auto-detected';
+
       return {
         success: true,
         report: result.report,
         metadata: {
           duration_ms: duration,
           query,
-          model: config.geminiModel,
+          model,
           timestamp: new Date().toISOString(),
           sources_visited: Array.isArray((result.metadata as Record<string, unknown>)?.sources_visited)
             ? (result.metadata as Record<string, unknown>).sources_visited as string[]

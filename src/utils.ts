@@ -3,7 +3,34 @@
  */
 
 import { spawn, type ChildProcess } from 'child_process';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { config, debugLog, progressLog, warnLog, errorLog } from './config.js';
+
+/**
+ * JSON schema constants for correction prompts
+ */
+
+export const SEARCH_SCHEMA = `{
+  "success": true,
+  "report": "# Your Report Title\\n\\n## Key Findings\\n- First finding\\n- Second finding\\n\\n## Details\\nMore detailed information...\\n\\n## Sources\\n1. Source title with URL",
+  "metadata": {
+    "sources_visited": ["https://example1.com", "https://example2.com"],
+    "search_queries_used": ["primary search query"],
+    "iterations": 1
+  }
+}`;
+
+export const DEEP_SEARCH_SCHEMA = `{
+  "success": true,
+  "verified": false,
+  "report": "# Comprehensive Report Title\\n\\n## Executive Summary\\nBrief overview of findings...\\n\\n## Key Findings\\n### Perspective 1: Technical\\n- Technical details...\\n\\n### Perspective 2: Historical Context\\n- Historical information...\\n\\n### Perspective 3: Current Trends\\n- Current developments...\\n\\n### Perspective 4: Expert Opinions\\n- Expert viewpoints...\\n\\n### Perspective 5: Statistics and Data\\n- Data-driven insights...\\n\\n## Detailed Analysis\\nMore comprehensive analysis...\\n\\n## Sources\\n1. Source title with URL",
+  "metadata": {
+    "sources_visited": ["https://example1.com", "https://example2.com"],
+    "search_queries_used": ["query1", "query2", "query3"],
+    "iterations": 1
+  }
+}`;
 
 /**
  * Check if gemini CLI is available
@@ -71,6 +98,59 @@ export function validateResearchResult(data: Record<string, unknown>): data is R
 }
 
 /**
+ * Clean up orphaned temporary files from previous crashes
+ */
+export async function cleanupOrphanedTempFiles(): Promise<void> {
+  try {
+    const files = await fs.readdir(config.configDir);
+    const tempFiles = files.filter(f => f.startsWith('temp-invalid-output-') && f.endsWith('.txt'));
+
+    if (tempFiles.length > 0) {
+      debugLog(`Found ${tempFiles.length} orphaned temporary file(s)`);
+      for (const file of tempFiles) {
+        const filePath = path.join(config.configDir, file);
+        try {
+          await fs.unlink(filePath);
+          debugLog(`Cleaned up orphaned temp file: ${file}`);
+        } catch (error) {
+          warnLog(`Failed to clean up temp file ${file}: ${(error as Error).message}`);
+        }
+      }
+    } else {
+      debugLog('No orphaned temporary files found');
+    }
+  } catch (error) {
+    // Config directory might not exist yet, which is fine
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      debugLog('Config directory does not exist yet, skipping cleanup');
+    } else {
+      warnLog(`Error during temp file cleanup: ${(error as Error).message}`);
+    }
+  }
+}
+
+/**
+ * Detect model name from CLI output
+ */
+export function detectModelFromCliOutput(output: string): string | null {
+  // Try to find model name in stderr/debug output
+  // Typical patterns: "Using model: gemini-2.5-flash", "Model: gemini-2.5-pro"
+  const modelPatterns = [
+    /(?:using model|model):\s*([a-z0-9.-]+)/i,
+    /gemini(?:-cli)?\s+using\s+([a-z0-9.-]+)/i,
+  ];
+
+  for (const pattern of modelPatterns) {
+    const match = output.match(pattern);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+
+  return null;
+}
+
+/**
  * Get helpful error message for Gemini CLI exit code
  */
 function getExitCodeMessage(code: number | null): string {
@@ -92,9 +172,10 @@ function getExitCodeMessage(code: number | null): string {
 /**
  * Spawn Gemini CLI and capture output
  */
-export async function spawnGeminiCli(prompt: string): Promise<string> {
+export async function spawnGeminiCli(prompt: string, model?: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    debugLog(`Spawning gemini process with model: ${config.geminiModel}`);
+    const modelDisplay = model || 'auto-select';
+    debugLog(`Spawning gemini process with model: ${modelDisplay}`);
     debugLog(`Working directory: ${config.configDir}`);
 
     const startTime = Date.now();
@@ -135,8 +216,12 @@ export async function spawnGeminiCli(prompt: string): Promise<string> {
     let timedOut = false;
 
     try {
+      // Build CLI arguments - only include --model if specified
+      const args = model ? ['--model', model] : [];
+      debugLog(`CLI args: ${args.length > 0 ? args.join(' ') : '(no model flag, using auto-select)'}`);
+
       // Spawn gemini process with stdin piping
-      process = spawn('gemini', ['--model', config.geminiModel], {
+      process = spawn('gemini', args, {
         stdio: ['pipe', 'pipe', 'pipe'],
         cwd: config.configDir,
       });
@@ -220,31 +305,137 @@ export async function spawnGeminiCli(prompt: string): Promise<string> {
 }
 
 /**
- * Execute research with retry logic
+ * JSON correction result with detected model
  */
-export async function executeResearchWithRetry(
+interface CorrectionResult {
+  data: Record<string, unknown>;
+  detectedModel?: string;
+}
+
+/**
+ * Correct invalid JSON output using a separate LLM call
+ */
+async function correctJsonOutput(
+  invalidOutput: string,
+  schema: string,
+  model?: string
+): Promise<CorrectionResult> {
+  const timestamp = Date.now();
+  const tempFileName = `temp-invalid-output-${timestamp}.txt`;
+  const tempFilePath = path.join(config.configDir, tempFileName);
+
+  debugLog(`Attempting JSON correction with temp file: ${tempFileName}`);
+
+  try {
+    // Write invalid output to temp file
+    await fs.writeFile(tempFilePath, invalidOutput, 'utf-8');
+    debugLog(`Wrote ${invalidOutput.length} bytes to temp file`);
+
+    // Build correction prompt
+    const correctionPrompt = `You are a JSON correction specialist. Your task is to fix the following malformed JSON output and convert it into valid JSON format.
+
+The original output was supposed to follow this schema:
+${schema}
+
+The invalid output is in the file at: ${tempFilePath}
+
+Please:
+1. Read the invalid output from the file
+2. Fix any JSON syntax errors (missing quotes, trailing commas, unescaped characters, etc.)
+3. Ensure the structure matches the expected schema
+4. Preserve all the meaningful content from the original output
+
+Respond with valid JSON only, wrapped in \`\`\`json ... \`\`\` code blocks. Do not include any explanatory text outside the JSON.`;
+
+    // Use correction model if set, otherwise undefined (auto-select)
+    const correctionModel = model ?? config.geminiCorrectionModel;
+    const result = await spawnGeminiCli(correctionPrompt, correctionModel);
+
+    // Try to extract JSON from correction output
+    const parsed = extractJsonFromOutput(result);
+
+    if (parsed && validateResearchResult(parsed)) {
+      debugLog('JSON correction successful');
+      return { data: parsed };
+    }
+
+    debugLog('JSON correction failed - output still invalid');
+    throw new Error('Correction output is still invalid JSON');
+  } finally {
+    // Clean up temp file
+    try {
+      await fs.unlink(tempFilePath);
+      debugLog(`Cleaned up temp file: ${tempFileName}`);
+    } catch (error) {
+      warnLog(`Failed to clean up temp file ${tempFileName}: ${(error as Error).message}`);
+    }
+  }
+}
+
+/**
+ * Execute research with retry logic and JSON correction fallback
+ *
+ * This function consolidates the retry logic from both search.ts and deep-search.ts.
+ * It implements a new retry flow:
+ * 1. Run main search prompt
+ * 2. If JSON invalid, attempt single correction prompt
+ * 3. If correction fails, proceed to next retry cycle
+ * 4. Maximum 3 retry cycles with exponential backoff
+ *
+ * @param prompt - The research prompt to execute
+ * @param schema - The JSON schema example for correction
+ * @param model - Optional model for main search (uses config.geminiModel if not provided)
+ * @returns Promise resolving to parsed JSON result with detected model
+ */
+export async function executeResearchWithCorrection(
   prompt: string,
-  maxRetries: number = config.jsonMaxRetries
-): Promise<Record<string, unknown>> {
+  schema: string,
+  model?: string
+): Promise<CorrectionResult> {
+  const maxRetries = config.jsonMaxRetries;
+  const mainModel = model ?? config.geminiModel;
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     debugLog(`Research attempt ${attempt}/${maxRetries}`);
 
     try {
-      const result = await spawnGeminiCli(prompt);
+      const result = await spawnGeminiCli(prompt, mainModel);
 
       // Try to extract JSON from output
       const parsed = extractJsonFromOutput(result);
 
       if (parsed && validateResearchResult(parsed)) {
-        debugLog('Valid JSON result obtained');
-        return parsed;
+        debugLog('Main search produced valid JSON');
+
+        // Try to detect model from output if not explicitly set
+        let detectedModel: string | undefined;
+        if (!mainModel) {
+          detectedModel = detectModelFromCliOutput(result) ?? undefined;
+        }
+
+        return { data: parsed, detectedModel };
       }
 
-      // Validation failed, retry
-      debugLog('JSON validation failed, retrying...');
-      lastError = new Error('JSON validation failed');
+      // Main search output was invalid - try correction
+      debugLog('Main search failed - attempting JSON correction');
+
+      // Detect model from main search output before attempting correction
+      let detectedModel: string | undefined;
+      if (!mainModel) {
+        detectedModel = detectModelFromCliOutput(result) ?? undefined;
+      }
+
+      try {
+        const correctionResult = await correctJsonOutput(result, schema, config.geminiCorrectionModel);
+
+        // Preserve detected model from main search (correction uses potentially different model)
+        return { data: correctionResult.data, detectedModel };
+      } catch (correctionError) {
+        debugLog('JSON correction failed:', correctionError);
+        lastError = correctionError as Error;
+        // Continue to next retry cycle
+      }
     } catch (error) {
       debugLog(`Research attempt ${attempt} failed:`, error);
       lastError = error as Error;
@@ -253,10 +444,25 @@ export async function executeResearchWithRetry(
     // Wait before retry (exponential backoff)
     if (attempt < maxRetries) {
       const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+      debugLog(`Waiting ${delay}ms before retry...`);
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 
-  // All retries failed
-  throw lastError || new Error('All research attempts failed');
+  // All retries failed - provide detailed error
+  const errorMsg = lastError
+    ? `All ${maxRetries} research attempts failed. Last error: ${lastError.message}`
+    : `All ${maxRetries} research attempts failed`;
+  throw new Error(errorMsg);
+}
+
+/**
+ * Legacy alias for backwards compatibility
+ * @deprecated Use executeResearchWithCorrection instead
+ */
+export async function executeResearchWithRetry(
+  prompt: string
+): Promise<Record<string, unknown>> {
+  const result = await executeResearchWithCorrection(prompt, SEARCH_SCHEMA, config.geminiModel);
+  return result.data;
 }

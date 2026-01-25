@@ -6,6 +6,7 @@
 
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createServer, setupShutdownHandlers } from './server.js';
+import { cleanupOrphanedTempFiles } from './utils.js';
 import { debugLog, progressLog, errorLog, config } from './config.js';
 import { ensureConfigSetup } from './config-setup.js';
 import * as fs from 'fs';
@@ -34,7 +35,7 @@ OPTIONS:
   --version, -v  Show version information
 
 ENVIRONMENT VARIABLES:
-  GEMINI_MODEL        Model to use (default: gemini-2.5-flash)
+  GEMINI_MODEL        Model to use (optional, auto-selects if not set)
   GEMINI_SEARCH_TIMEOUT  Max search duration in ms (default: 300000)
   FIRECRAWL_API_KEY   API key for Firecrawl (optional, enables JS rendering)
   DEBUG               Enable verbose logging (set to "true")
@@ -52,7 +53,7 @@ EXAMPLES:
   # Enable debug logging
   DEBUG=true gemini-search-mcp
 
-  # Use specific Gemini model
+  # Use specific Gemini model (optional - auto-selects if not set)
   GEMINI_MODEL=gemini-2.5-pro gemini-search-mcp
 `);
 }
@@ -87,10 +88,13 @@ async function main(): Promise<void> {
 
   debugLog('Starting gemini-search-mcp in stdio mode');
   debugLog(`Config directory: ${config.configDir}`);
-  debugLog(`Gemini model: ${config.geminiModel}`);
+  debugLog(`Gemini model: ${config.geminiModel || 'auto-select'}`);
 
   // Ensure config is set up
   await ensureConfigSetup();
+
+  // Clean up any orphaned temp files from previous crashes
+  await cleanupOrphanedTempFiles();
 
   // Create the MCP server
   const server = createServer();
