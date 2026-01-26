@@ -69,27 +69,33 @@ export async function ensureConfigSetup(): Promise<void> {
     if (needsRegeneration) {
       debugLog('Gemini CLI settings.json not found, generating from template');
 
-      // Build the settings based on whether Firecrawl is configured
-      const settings: Record<string, unknown> = {};
+      // Build the settings - always include chrome-devtools
+      const mcpServers: Record<string, unknown> = {
+        'chrome-devtools': {
+          command: 'npx',
+          args: ['-y', 'chrome-devtools-mcp@latest', '--headless=true', '--isolated=true'],
+        },
+      };
+      debugLog('Chrome DevTools MCP server configuration included');
 
       if (hasFirecrawlConfig) {
-        settings.mcpServers = {
-          firecrawl: {
-            command: 'npx',
-            args: ['-y', 'firecrawl-mcp'],
-            env: {
-              FIRECRAWL_API_KEY: firecrawlApiKey,
-              FIRECRAWL_API_URL: firecrawlApiUrl,
-              HTTP_STREAMABLE_SERVER: 'true',
-            },
+        mcpServers.firecrawl = {
+          command: 'npx',
+          args: ['-y', 'firecrawl-mcp'],
+          env: {
+            FIRECRAWL_API_KEY: firecrawlApiKey,
+            FIRECRAWL_API_URL: firecrawlApiUrl,
+            HTTP_STREAMABLE_SERVER: 'true',
           },
         };
         debugLog('Firecrawl MCP server configuration included');
       } else {
-        // Empty mcpServers or no mcpServers at all
-        settings.mcpServers = {};
         debugLog('Firecrawl MCP server configuration skipped (no credentials)');
       }
+
+      const settings: Record<string, unknown> = {
+        mcpServers,
+      };
 
       // Try to read and use template if it exists
       const templatePath = path.join(__dirname, '..', 'templates', 'gemini-settings.json.template');
@@ -107,10 +113,6 @@ export async function ensureConfigSetup(): Promise<void> {
           const parsed = JSON.parse(settingsContent);
           if (parsed.mcpServers?.firecrawl) {
             delete parsed.mcpServers.firecrawl;
-            // If mcpServers is now empty, remove it entirely
-            if (Object.keys(parsed.mcpServers).length === 0) {
-              delete parsed.mcpServers;
-            }
             settingsContent = JSON.stringify(parsed, null, 2);
           }
         }

@@ -26,6 +26,24 @@ export interface FetchParams {
 }
 
 /**
+ * Build the fetch HTML prompt from template
+ */
+async function buildFetchHtmlPrompt(url: string): Promise<string> {
+  const templatePath = path.join(__dirname, '..', 'prompts', 'fetch-html-prompt.md');
+
+  try {
+    const template = await fs.readFile(templatePath, 'utf-8');
+    return template.replace(/\{\{url\}\}/g, url);
+  } catch (error) {
+    debugLog('Fetch HTML prompt template not found, using fallback');
+    return `Fetch the HTML content of this webpage: ${url}
+
+Call the web_fetch tool exactly ONE time and return the raw HTML content.
+Do NOT retry, do NOT summarize, do NOT modify. Return only the HTML.`;
+  }
+}
+
+/**
  * Fetch result metadata
  */
 export interface FetchMetadata {
@@ -94,13 +112,8 @@ async function buildCleanupPrompt(url: string, markdown: string): Promise<string
 async function fetchHtmlFromGemini(url: string): Promise<{ html: string; model?: string }> {
   debugLog(`Fetching HTML from URL: ${url}`);
 
-  const prompt = `Fetch and return the full HTML content of this webpage: ${url}
-
-Use browser MCP or web_fetch tools if available. Make sure to wait for JavaScript to execute and get the fully rendered HTML. Return the raw HTML content without any modifications or explanations. 
-
-Do not return any summary. Final message MUST be the raw HTML content.`;
-
-      const result = await spawnGeminiCli(prompt, config.secondaryGeminiModel);
+  const prompt = await buildFetchHtmlPrompt(url);
+  const result = await spawnGeminiCli(prompt, config.secondaryGeminiModel);
 
   const htmlMatch = result.match(/```html\s*([\s\S]*?)\s*```/) || result.match(/```xml\s*([\s\S]*?)\s*```/);
   const html = htmlMatch?.[1]?.trim() || result.trim();

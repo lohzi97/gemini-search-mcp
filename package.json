@@ -1,6 +1,6 @@
 {
   "name": "@lohzi97/gemini-search-mcp",
-  "version": "0.1.4",
+  "version": "0.1.9",
   "description": "An MCP server that wraps Google Gemini CLI for web search capabilities",
   "type": "module",
   "main": "./dist/index.js",
