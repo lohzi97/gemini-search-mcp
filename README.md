@@ -171,7 +171,8 @@ Use the fetch_webpage tool.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model to use |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Main Gemini model for search and deep_search |
+| `SECONDARY_GEMINI_MODEL` | `gemini-2.5-flash` | Secondary/faster model for lightweight tasks (JSON correction, webpage fetching) |
 | `GEMINI_SEARCH_TIMEOUT` | `300000` | Max wait time in milliseconds |
 | `GEMINI_SYSTEM_PROMPT` | *built-in* | Custom system prompt template |
 | `DEEP_SEARCH_MAX_ITERATIONS` | `5` | Max verification rounds for deep_search |

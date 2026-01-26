@@ -96,9 +96,11 @@ async function fetchHtmlFromGemini(url: string): Promise<{ html: string; model?:
 
   const prompt = `Fetch and return the full HTML content of this webpage: ${url}
 
-Use browser MCP or web_fetch tools if available. Make sure to wait for JavaScript to execute and get the fully rendered HTML. Return the raw HTML content without any modifications or explanations.`;
+Use browser MCP or web_fetch tools if available. Make sure to wait for JavaScript to execute and get the fully rendered HTML. Return the raw HTML content without any modifications or explanations. 
 
-  const result = await spawnGeminiCli(prompt);
+Do not return any summary. Final message MUST be the raw HTML content.`;
+
+      const result = await spawnGeminiCli(prompt, config.secondaryGeminiModel);
 
   const htmlMatch = result.match(/```html\s*([\s\S]*?)\s*```/) || result.match(/```xml\s*([\s\S]*?)\s*```/);
   const html = htmlMatch?.[1]?.trim() || result.trim();
@@ -148,7 +150,7 @@ async function cleanupMarkdownWithRetry(
     
     try {
       const prompt = await buildCleanupPrompt(url, markdown);
-      const result = await spawnGeminiCli(prompt);
+  const result = await spawnGeminiCli(prompt, config.secondaryGeminiModel);
       
       const cleanedMatch = result.match(/```markdown\s*([\s\S]*?)\s*```/);
       const cleaned = cleanedMatch?.[1]?.trim() || result.trim();
@@ -276,7 +278,7 @@ export async function fetchWebpage(params: FetchParams): Promise<FetchResult> {
       metadata: {
         duration_ms: duration,
         url,
-        model: config.geminiModel || detectedModel || 'auto-detected',
+        model: config.secondaryGeminiModel || detectedModel || 'auto-detected',
         timestamp: new Date().toISOString(),
         cleanup_status: 'html_only',
       },

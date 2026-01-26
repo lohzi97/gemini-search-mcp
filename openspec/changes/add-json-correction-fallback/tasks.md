@@ -2,8 +2,8 @@
 
 ### 1.1 Configuration
 - [x] 1.1.1 Update `src/config.ts` to change `geminiModel` default from `'gemini-2.5-flash'` to `undefined`
-- [x] 1.1.2 Add `geminiCorrectionModel` config option (optional, no default)
-- [x] 1.1.3 Add `GEMINI_CORRECTION_MODEL` env var to `.env.example` with documentation
+- [x] 1.1.2 Add `secondaryGeminiModel` config option (optional, no default)
+- [x] 1.1.3 Add `SECONDARY_GEMINI_MODEL` env var to `.env.example` with documentation
 - [x] 1.1.4 Update `.env.example` to clarify `GEMINI_MODEL` is now optional (auto-select when not set)
 
 ### 1.2 Startup Cleanup for Orphaned Temp Files
@@ -26,7 +26,7 @@
 - [x] 1.4.2 Add `correctJsonOutput(invalidOutput: string, schema: string, model?: string)` function to `src/utils.ts`
 - [x] 1.4.3 Write `invalidOutput` to temporary file (`temp-invalid-output-{unix-timestamp}.txt`) in config directory
 - [x] 1.4.4 Create `prompts/correction-prompt.md` template with placeholders for schema and temp file path (implemented inline)
-- [x] 1.4.5 Accept optional model parameter for correction (uses `config.geminiCorrectionModel` if set, otherwise undefined)
+- [x] 1.4.5 Accept optional model parameter for correction (uses `config.secondaryGeminiModel` if set, otherwise undefined)
 - [x] 1.4.6 Add distinct debug logging for correction attempts vs main search failures
 - [x] 1.4.7 Clean up temporary file after correction attempt (both success and failure cases), log error if cleanup fails
 - [x] 1.4.8 Request fenced ```json code blocks in correction prompt (consistent with other prompts)
@@ -75,4 +75,4 @@
 
 ## 2. Documentation
 - [x] 2.1 Update relevant comments in code describing new correction flow
-- [x] 2.2 Update `.env.example` with `GEMINI_MODEL` and `GEMINI_CORRECTION_MODEL` documentation
+- [x] 2.2 Update `.env.example` with `GEMINI_MODEL` and `SECONDARY_GEMINI_MODEL` documentation

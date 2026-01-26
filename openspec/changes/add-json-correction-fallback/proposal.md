@@ -19,13 +19,13 @@ A more efficient approach is to add a dedicated "JSON correction" step that uses
   - Note: Gemini CLI runs with user permissions, so it already has read/write access to the config directory
 - Add schema constants `SEARCH_SCHEMA` and `DEEP_SEARCH_SCHEMA` in `src/utils.ts` (full JSON examples for correction prompt)
 - Add startup cleanup function `cleanupOrphanedTempFiles()` that runs on server initialization to remove any leftover `temp-invalid-output-*.txt` files from previous crashes
-- Add new config option `GEMINI_CORRECTION_MODEL` (optional) for the correction task
+- Add new config option `SECONDARY_GEMINI_MODEL` (optional) for lightweight tasks (JSON correction, webpage fetching)
 - **Refactor**: Consolidate `executeSearchRound()` in `src/deep-search.ts` and `executeResearchWithRetry()` in `src/utils.ts` into a single shared function `executeResearchWithCorrection(prompt, schema, model?)` to eliminate duplication
 - Update `spawnGeminiCli()` to accept optional model parameter (if not provided, don't pass `--model` flag - let Gemini CLI auto-select)
 - **Change config defaults**: Change `geminiModel` default from `'gemini-2.5-flash'` to `undefined` to distinguish "not set" from "explicitly set"
 - Update retry flow with new behavior:
   1. Run main search prompt (uses `GEMINI_MODEL` if set, otherwise auto-select)
-  2. If JSON invalid, attempt correction prompt (uses `GEMINI_CORRECTION_MODEL` if set, otherwise auto-select)
+  2. If JSON invalid, attempt correction prompt (uses `SECONDARY_GEMINI_MODEL` if set, otherwise auto-select)
   3. Single correction attempt per cycle - if correction fails, proceed to next retry cycle
   4. Maximum 3 retry cycles
 - Add `prompts/correction-prompt.md` template with placeholders for schema and temp file path
@@ -34,8 +34,8 @@ A more efficient approach is to add a dedicated "JSON correction" step that uses
 
 **Model Selection Behavior:**
 - No env vars set → Don't pass `--model` to Gemini CLI (let it auto-select)
-- `GEMINI_MODEL` set → Use specified model for search tasks
-- `GEMINI_CORRECTION_MODEL` set → Use specified model for JSON correction tasks
+- `GEMINI_MODEL` set → Use specified model for search and deep_search tools
+- `SECONDARY_GEMINI_MODEL` set → Use specified model for JSON correction and webpage fetching
 - Each model can be configured independently
 
 **Metadata Model Field:**

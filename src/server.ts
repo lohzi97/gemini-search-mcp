@@ -48,9 +48,7 @@ Use this for:
 The tool will:
 1. Search Google once for relevant sources
 2. Fetch content from the most promising results
-3. Return a concise report
-
-If Firecrawl is unavailable, the tool gracefully degrades to Google Search only.`,
+3. Return a concise report`,
     {
       query: z.string().describe('The search query or question.'),
     },
@@ -127,9 +125,7 @@ The tool will:
 1. Perform initial research with 5-perspective analysis (technical, historical, current trends, expert opinions, statistics)
 2. Iteratively verify and enhance results through multiple rounds
 3. Complete when verified or max iterations (default: 5) is reached
-4. Return final result with metadata including all sources and round-by-round progress
-
-If Firecrawl is unavailable, the tool gracefully degrades to Google Search only.`,
+4. Return final result with metadata including all sources and round-by-round progress`,
     {
       topic: z.string().describe('The specific research question or topic. Be detailed for better results.'),
       maxIterations: z

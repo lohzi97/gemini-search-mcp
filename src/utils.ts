@@ -350,7 +350,7 @@ Please:
 Respond with valid JSON only, wrapped in \`\`\`json ... \`\`\` code blocks. Do not include any explanatory text outside the JSON.`;
 
     // Use correction model if set, otherwise undefined (auto-select)
-    const correctionModel = model ?? config.geminiCorrectionModel;
+    const correctionModel = model ?? config.secondaryGeminiModel;
     const result = await spawnGeminiCli(correctionPrompt, correctionModel);
 
     // Try to extract JSON from correction output
@@ -429,7 +429,7 @@ export async function executeResearchWithCorrection(
       }
 
       try {
-        const correctionResult = await correctJsonOutput(result, schema, config.geminiCorrectionModel);
+        const correctionResult = await correctJsonOutput(result, schema, config.secondaryGeminiModel);
 
         // Preserve detected model from main search (correction uses potentially different model)
         return { data: correctionResult.data, detectedModel };

@@ -7,7 +7,7 @@
 The `search` tool SHALL support optional model configuration for both main search and JSON correction tasks. When no model is specified, the Gemini CLI shall auto-select the model.
 
 #### Scenario: No model specified - auto-selection
-- **WHEN** neither `GEMINI_MODEL` nor `GEMINI_CORRECTION_MODEL` environment variables are set
+- **WHEN** neither `GEMINI_MODEL` nor `SECONDARY_GEMINI_MODEL` environment variables are set
 - **THEN** the server spawns Gemini CLI without passing `--model` flag
 - **AND** the Gemini CLI auto-selects the appropriate model for both search and correction
 
@@ -17,12 +17,12 @@ The `search` tool SHALL support optional model configuration for both main searc
 - **AND** passes `--model <value>` to the Gemini CLI for search spawns
 
 #### Scenario: Correction model specified
-- **WHEN** `GEMINI_CORRECTION_MODEL` environment variable is set
+- **WHEN** `SECONDARY_GEMINI_MODEL` environment variable is set
 - **THEN** the server uses the specified model for JSON correction tasks
 - **AND** passes `--model <value>` to the Gemini CLI for correction spawns
 
 #### Scenario: Both models specified
-- **WHEN** both `GEMINI_MODEL` and `GEMINI_CORRECTION_MODEL` are set
+- **WHEN** both `GEMINI_MODEL` and `SECONDARY_GEMINI_MODEL` are set
 - **THEN** the server uses each specified model for its respective task
 - **AND** each task uses its independently configured model
 
