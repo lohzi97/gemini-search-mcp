@@ -69,14 +69,8 @@ export async function ensureConfigSetup(): Promise<void> {
     if (needsRegeneration) {
       debugLog('Gemini CLI settings.json not found, generating from template');
 
-      // Build the settings - always include chrome-devtools
-      const mcpServers: Record<string, unknown> = {
-        'chrome-devtools': {
-          command: 'npx',
-          args: ['-y', 'chrome-devtools-mcp@latest', '--headless=true', '--isolated=true'],
-        },
-      };
-      debugLog('Chrome DevTools MCP server configuration included');
+      // Build settings
+      const mcpServers: Record<string, unknown> = {};
 
       if (hasFirecrawlConfig) {
         mcpServers.firecrawl = {

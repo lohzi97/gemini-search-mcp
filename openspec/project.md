@@ -11,10 +11,10 @@ User/IDE → Main AI (Claude/Cursor) → gemini-search-mcp → Gemini CLI → Go
 
 ### Goals
 
-1. **Seamless Search Integration**: Provide `search`, `deep_search`, and `fetch_webpage` tools that AI assistants can call for web search and direct webpage fetching
+1. **Seamless Search Integration**: Provide `search` and `deep_search` tools that AI assistants can call for web search
 2. **Flexible Web Access**: Work with Gemini's built-in web tools, with optional Firecrawl for JS-heavy sites
 3. **Config Isolation**: Create project-level Gemini CLI configuration to avoid conflicting with user's personal Gemini settings
-4. **Structured Output**: Return search and fetch results as typed JSON with metadata for easy parsing
+4. **Structured Output**: Return search results as typed JSON with metadata for easy parsing
 
 ## Tech Stack
 
@@ -25,7 +25,6 @@ User/IDE → Main AI (Claude/Cursor) → gemini-search-mcp → Gemini CLI → Go
 - **Model Context Protocol SDK** (`@modelcontextprotocol/sdk` ^1.25.2) - MCP server implementation
 - **Zod 4.0+** - Runtime type validation and schema definition
 - **Express 4.18+** - HTTP server for HTTP transport mode (optional)
-- **Turndown 7.2+** - HTML to Markdown conversion for webpage fetching
 
 ### Development Tools
 
@@ -74,11 +73,6 @@ User/IDE → Main AI (Claude/Cursor) → gemini-search-mcp → Gemini CLI → Go
 
 6. **Template-Based Config**: `templates/gemini-settings.json.template` uses `{{VAR}}` placeholders substituted at config generation time
 
-7. **Graceful Fallback for Webpage Fetch**: The fetch_webpage tool has three fallback levels:
-   - `full`: HTML fetch, Turndown conversion, and AI cleanup all succeeded
-   - `turndown_only`: AI cleanup failed, returns Turndown-converted markdown
-   - `html_only`: Turndown conversion failed, returns raw HTML
-
 ### File Structure
 
 ```
@@ -88,7 +82,6 @@ src/
 ├── server.ts         # MCP server creation, tool registration
 ├── search.ts         # Single-round search orchestration
 ├── deep-search.ts    # Multi-round iterative search orchestration, Gemini CLI spawn
-├── fetch.ts          # Webpage fetch orchestration with HTML-to-Markdown conversion
 ├── config.ts         # Environment variables, logging utilities
 └── config-setup.ts   # Config directory creation, settings.json generation
 
@@ -96,8 +89,7 @@ templates/
 └── gemini-settings.json.template  # Template for Gemini CLI config
 
 prompts/
-├── search-prompt.md  # System prompt template for search tasks
-└── fetch-cleanup-prompt.md  # System prompt template for markdown cleanup
+└── search-prompt.md  # System prompt template for search tasks
 
 dist/                 # Built output (not in source control)
 ```
@@ -116,7 +108,7 @@ Currently uses manual testing via `node test-research.ts`. No automated test sui
 
 ### Model Context Protocol (MCP)
 
-MCP is a protocol for connecting AI assistants to external tools and data sources. This project implements an MCP **server** that exposes `search`, `deep_search`, and `fetch_webpage` tools.
+MCP is a protocol for connecting AI assistants to external tools and data sources. This project implements an MCP **server** that exposes `search` and `deep_search` tools.
 
 ### Transport Modes
 
@@ -133,14 +125,6 @@ MCP is a protocol for connecting AI assistants to external tools and data source
 5. Gemini CLI performs search using available tools (search, scrape, etc.)
 6. Server parses JSON output from CLI (with retry logic)
 7. Server returns structured result with metadata
-
-#### Webpage Fetch
-1. Client calls `fetch_webpage` with `{ url: string }`
-2. Server validates Gemini CLI is available
-3. Server spawns Gemini CLI to fetch HTML (with browser MCP for JS/protected pages)
-4. Server converts HTML to Markdown using Turndown library
-5. Server spawns Gemini CLI to clean and optimize the markdown
-6. Server returns structured result with metadata including cleanup status
 
 ## Important Constraints
 

@@ -13,7 +13,7 @@ A Model Context Protocol (MCP) server that wraps the Google Gemini CLI for power
 
 ### Key Features
 
-- **Three Research Modes**: `search` (quick single-round), `deep_search` (multi-round with verification), and `fetch_webpage` (direct webpage fetching)
+- **Two Research Modes**: `search` (quick single-round) and `deep_search` (multi-round with verification)
 - **Smart Web Fetching**: Leverages Gemini's built-in web capabilities to retrieve and analyze content
 - **Optional Enhancement**: Can integrate Firecrawl for JavaScript-rendered sites when available
 - **Dual Transport**: Supports both stdio (Claude Desktop) and HTTP (remote clients)
@@ -119,7 +119,7 @@ Add `"FIRECRAWL_API_KEY": "your-key"` if you want to use Firecrawl.
 
 **Note:** Some documentation incorrectly mentions `~/.config/claude-code/mcp_servers.json` - this location is not recognized by Claude Code.
 
-**To verify:** In Claude Code, ask "List available MCP tools" to confirm `search`, `deep_search`, and `fetch_webpage` appear.
+**To verify:** In Claude Code, ask "List available MCP tools" to confirm `search` and `deep_search` appear.
 
 ### Using the Tools
 
@@ -149,20 +149,7 @@ Best for complex topics requiring thorough verification and server-orchestrated 
 **Example:**
 ```
 Please research the impact of AI on healthcare in 2024.
-Use the deep_search tool with maxIterations of 5.
-```
-
-#### 3. `fetch_webpage` - Direct Webpage Fetching
-
-Best for fetching specific webpage content without performing a search.
-
-**Parameters:**
-- `url` (string, required): The URL of the webpage to fetch
-
-**Example:**
-```
-Please fetch and read the content from https://example.com/docs/api.
-Use the fetch_webpage tool.
+Use deep_search tool with maxIterations of 5.
 ```
 
 ## Configuration
@@ -172,7 +159,7 @@ Use the fetch_webpage tool.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Main Gemini model for search and deep_search |
-| `SECONDARY_GEMINI_MODEL` | `gemini-2.5-flash` | Secondary/faster model for lightweight tasks (JSON correction, webpage fetching) |
+| `SECONDARY_GEMINI_MODEL` | `gemini-2.5-flash` | Secondary/faster model for lightweight tasks (JSON correction) |
 | `GEMINI_SEARCH_TIMEOUT` | `300000` | Max wait time in milliseconds |
 | `GEMINI_SYSTEM_PROMPT` | *built-in* | Custom system prompt template |
 | `DEEP_SEARCH_MAX_ITERATIONS` | `5` | Max verification rounds for deep_search |

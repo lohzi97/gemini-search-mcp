@@ -220,8 +220,6 @@ export async function spawnGeminiCli(prompt: string, model?: string): Promise<st
       const args = model ? ['--model', model] : [];
       args.push('--allowed-tools');
       args.push('web_fetch');
-      args.push('--allowed-mcp-server-names');
-      args.push('chrome-devtools');
       debugLog(`CLI args: ${args.length > 0 ? args.join(' ') : '(no model flag, using auto-select)'}`);
 
       // Spawn gemini process with stdin piping
